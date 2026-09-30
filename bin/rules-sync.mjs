@@ -148,7 +148,7 @@ function applySync(project, { force, dryRun }) {
     fs.writeFileSync(path.join(project, LOCK_NAME),
       JSON.stringify({ base: 'agent-rules', revision, syncedAt: new Date().toISOString(), files: lockFiles }, null, 2) + '\n', 'utf8');
   }
-  return { revision, written, unchanged, conflicts, projectOwned, total: items.length };
+  return { revision, written, unchanged, conflicts, projectOwned, lockFiles, total: items.length };
 }
 
 function requireInto(argv, usage) {
@@ -166,6 +166,22 @@ function reportSync(project, r, dryRun) {
   show('already up to date', r.unchanged);
   show('project-owned (left alone)', r.projectOwned);
   show('CONFLICT — same name, not previously vendored (use --force to replace)', r.conflicts);
+
+  // The index is project-owned, so a rule the base gains cannot be routed automatically. Say so
+  // here, at the moment it happens, rather than letting a silently dead rule fail CI later.
+  const indexPath = path.join(project, 'AGENTS.md');
+  if (fs.existsSync(indexPath)) {
+    const index = fs.readFileSync(indexPath, 'utf8');
+    const orphaned = Object.keys(r.lockFiles ?? {})
+      .filter((rel) => rel.startsWith(posix(RULES_DIR)) && !index.includes(path.basename(rel)))
+      .sort()
+      .map((rel) => path.basename(rel));
+    if (orphaned.length) {
+      console.log(`Not referenced by AGENTS.md yet (${orphaned.length}):\n  ${orphaned.join('\n  ')}`);
+      console.log('  The index is project-owned, so sync cannot route them for you.');
+      console.log('  Add a row to AGENTS.md, then run: node .agents/bin/check-index.mjs\n');
+    }
+  }
 }
 
 function cmdSync(argv) {
