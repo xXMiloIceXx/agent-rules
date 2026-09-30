@@ -49,6 +49,7 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 | Python | `.agents/rules/python.md` |
 | Java / JVM builds | `.agents/rules/java.md` |
 | C / C++ | `.agents/rules/c-cpp.md` |
+| Jupyter notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
 | An explicit release or audit | `.agents/rules/90-release-checklist.md` |
 
 Skills are named `.agents/skills/<name>/SKILL.md`.

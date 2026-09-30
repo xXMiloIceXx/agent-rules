@@ -128,6 +128,23 @@ console.log('=== 6) every rule file is reachable from AGENTS.md ===');
   if (dead.length) fail(`unreachable rule file(s): ${dead.join(', ')}`);
 }
 
+console.log('=== 7) templates/AGENTS.md routes every rule ===');
+{
+  const tpl = path.join('templates', 'AGENTS.md');
+  if (!fs.existsSync(tpl)) {
+    fail('templates/AGENTS.md is missing — `init` would scaffold an index that routes nothing');
+  } else {
+    const text = fs.readFileSync(tpl, 'utf8');
+    const unRouted = files.filter((f) => !text.includes(f));
+    if (unRouted.length) {
+      for (const m of unRouted) console.log(`  MISSING ${m}`);
+      fail(`templates/AGENTS.md does not route: ${unRouted.join(', ')} — every project created with init would have a dead rule`);
+    } else {
+      console.log(`  ok   all ${files.length} rule file(s) referenced`);
+    }
+  }
+}
+
 if (problems.length) {
   console.log('\nFAILED:');
   for (const p of problems) console.log('  - ' + p);
