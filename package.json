@@ -1,0 +1,17 @@
+{
+  "name": "agent-rules",
+  "version": "1.0.0",
+  "description": "Portable agent rules sync tool",
+  "type": "module",
+  "bin": {
+    "agent-rules": "./bin/setup.mjs",
+    "setup-agent-rules": "./bin/setup.mjs"
+  },
+  "files": [
+    ".agents",
+    "bin",
+    "templates",
+    "AGENTS.md",
+    "README.md"
+  ]
+}
