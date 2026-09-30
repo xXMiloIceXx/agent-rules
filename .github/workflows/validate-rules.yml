@@ -35,3 +35,17 @@ jobs:
           git init -q "$scratch"
           node bin/rules-sync.mjs sync --into "$scratch"
           node "$scratch/.agents/bin/rules-sync.mjs" check --project "$scratch"
+
+      # And that the whole bootstrap works: init writes the rules AND the project-owned files that
+      # make them reachable, after which both guards pass in the new project.
+      - name: Smoke-test rules-sync init on a new project
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)/new-project"
+          node bin/rules-sync.mjs init --into "$scratch"
+          test -f "$scratch/AGENTS.md"
+          test -f "$scratch/.agents/rules/project-truth.md"
+          node "$scratch/.agents/bin/check-index.mjs" --project "$scratch"
+          node "$scratch/.agents/bin/rules-sync.mjs" check --project "$scratch"
+          # No placeholder may survive into a scaffolded file.
+          ! grep -rq '{{' "$scratch/AGENTS.md" "$scratch/.agents/rules/project-truth.md"

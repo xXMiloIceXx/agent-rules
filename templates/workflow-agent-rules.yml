@@ -1,0 +1,32 @@
+name: Agent Rules
+
+# Verifies the vendored rule files. Both scripts and the lock file are committed, so this needs
+# nothing but Node — no copy of the agent-rules repository.
+#
+# If the project already has a workflow, paste the two steps below into it instead of using this
+# file, so the checks run in the same job as everything else.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  agent-rules:
+    name: Vendored rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Fails when a vendored rule has been hand-edited, deleted, or left unsynced.
+      - name: Verify Vendored Agent Rules
+        run: node .agents/bin/rules-sync.mjs check
+
+      # A rule nothing routes to is a dead rule: it is never read, and it drifts.
+      - name: Verify Rule Reachability
+        run: node .agents/bin/check-index.mjs
