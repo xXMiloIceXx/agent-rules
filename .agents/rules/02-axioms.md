@@ -30,6 +30,11 @@ Anything derived at an immutable business boundary — a snapshot, a ledger entr
 must be **replay-safe**: running it twice must not produce a second copy or a duplicate
 reference. Recover or reuse the existing state instead of creating another.
 
+Derive it **at that boundary, and nowhere else**: the moment a decision becomes final (approved,
+settled, closed, cancelled), not on every write and not on a timer. A snapshot taken mid-transition
+records an answer nobody agreed to, and one taken on a schedule is stale the moment a transition
+happens between ticks.
+
 ## 4. Action-aware validation
 
 Scope validation to the action actually being performed. Creation, approval, rejection,

@@ -41,6 +41,18 @@ here, the project wins.
 - Never put heavy data manipulation inside a DDL migration. Schema change and data change are
   separate concerns with separate failure modes.
 
+## Seeders, backfills and bulk writes
+
+- **Suppress model events deliberately, not by accident.** A seeder, backfill or import that saves
+  models in a loop fires observers once per row — notifications, webhooks, audit entries, search
+  indexing — in an environment nobody is watching. Decide explicitly which side effects you want:
+  keep the events, or bypass them (`Model::withoutEvents()`, a direct query-builder update) and
+  say why in the commit. Leaving it to chance is how a backfill emails every customer.
+- **Re-warm what the write invalidated.** When a seeder changes cached lookups, translations or
+  configuration, flush the affected cache and re-warm it in the same run. A seeder that leaves a
+  stale cache behind produces a bug that reads like a code bug to whoever debugs it next.
+- Seeders are **re-runnable**: the same input produces the same end state, with no duplicate rows.
+
 ## Transactions
 
 `DB::beginTransaction()` goes immediately **outside/before** the `try` block, never inside it.

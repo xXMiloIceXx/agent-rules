@@ -26,6 +26,19 @@ Read when touching queries, loops that scale with data, reporting, or caching.
 - Aggregate in the database rather than pulling rows in to sum them.
 - Avoid loading a relation just to call `count()`; use `withCount`.
 
+## Read and serialisation paths
+
+- **A read path must not perform remote I/O.** Serving a payload — an API resource, a page prop, a
+  model accessor, a list endpoint — must not call a remote system to answer a question about data
+  you already store: `exists()`, `size()`, a signed URL generated per row, an HTTP call inside a
+  transformer. It costs one round trip per row, and the remote system's downtime becomes your read
+  path's downtime.
+- **Resolve remote facts at write time.** Persist the metadata you will need to display (size,
+  path, checksum, storage key, public URL) when the object is ingested, and read it from the
+  database afterwards.
+- If a signed URL genuinely must be produced on read, produce it **once per response**, never
+  inside a loop that scales with the page size.
+
 ## Caching
 
 - Cache the expensive and reused, not the cheap and rare.
