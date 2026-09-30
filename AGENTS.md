@@ -40,6 +40,7 @@ project pulls them in through `.agents/rules.json` `inherits` instead of copying
 | `**/*.py`, `pyproject.toml` | `.agents/rules/python.md` |
 | `**/*.java`, `pom.xml`, `build.gradle*` | `.agents/rules/java.md` |
 | `**/*.c`, `**/*.cpp`, `**/*.h`, `CMakeLists.txt` | `.agents/rules/c-cpp.md` |
+| `**/*.ipynb` — notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
 
 Antigravity activates those automatically from the frontmatter `globs`. Harnesses without a
 frontmatter mechanism use this table instead — one set of files, two consumers.

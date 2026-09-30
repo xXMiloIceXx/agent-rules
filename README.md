@@ -143,6 +143,7 @@ AGENTS.md                      # workspace-wide entry point for consuming projec
     python.md                  # glob
     java.md                    # glob
     c-cpp.md                   # glob
+    jupyter.md                 # glob — notebooks and AI/ML experiments
     90-release-checklist.md    # manual
 bin/
   rules-sync.mjs               # sync / init / check — the only thing that writes a project
