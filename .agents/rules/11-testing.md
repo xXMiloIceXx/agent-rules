@@ -25,6 +25,19 @@ recurring real bug: a truthiness check silently swallows it. A form field readin
 Terminal and destructive actions (delete, cancel, reject, expire, revoke) each need a dedicated
 case. So do authorization denials and duplicate-request/idempotency paths.
 
+## Focus areas beyond the happy path
+
+A change touching any of these needs its own case: authorization bypass, transaction safety,
+races under concurrent writes, duplicate requests and idempotency, and the consistency of any
+derived, cached or aggregated value.
+
+## The test environment is not production
+
+The test database, cache, queue and storage are usually fakes with different behaviour. Do not run
+engine-specific statements, and do not rely on a particular SQL mode or collation, without
+checking the driver. Mock the external services the production path would call. A suite that only
+passes against real infrastructure will not run in CI.
+
 ## Trust
 
 - A test that cannot fail is not a test. Assert on behaviour, not on implementation detail.
