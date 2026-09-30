@@ -8,7 +8,12 @@
  *
  * Reachability is transitive: AGENTS.md is the root, and every `.md` a reached file mentions is
  * itself reached. Skills under `.agents/skills/` are excluded — the harness discovers those from
- * its own catalogue rather than from the index.
+ * its own catalogue rather than from the index — and so is retired material under
+ * `.agents/legacy/`, which is kept as reference but deliberately not read as rules.
+ *
+ * Other harness entry points (`CLAUDE.md`, `.cursorrules`, `.geminirules`, …) are reported when
+ * they exist and do not mention the index. That report is advisory: another tool may legitimately
+ * own such a file, so it never fails the build.
  *
  * This script is vendored into every project by rules-sync and needs no copy of the base.
  *
@@ -25,23 +30,50 @@ process.chdir(ROOT);
 const INDEX = 'AGENTS.md';
 const SEARCH_DIRS = ['.agents/rules', '.agents/shared'];
 const SKILLS = '.agents/skills';
+/** Retired material: kept in the repository as reference, deliberately not read as rules. */
+const LEGACY = '.agents/legacy';
 /** Entry points other tools look for. Only the ones that exist are checked. */
 const POINTERS = ['.agents/AGENTS.md', '.agents/claude/CLAUDE.md', '.agents/codex/AGENTS.md'];
+/**
+ * Files that are not the index but still steer an agent. A stale one — one that does not mention
+ * the index — is how two rule sets end up active at once. Reported, never fatal: a project may
+ * legitimately keep another harness's file for something else.
+ */
+const ENTRY_POINTS = [
+  'CLAUDE.md', 'GEMINI.md', '.geminirules', '.cursorrules', '.windsurfrules',
+  '.claude/CLAUDE.md', '.github/copilot-instructions.md',
+];
 
 const rel = (p) => p.split(path.sep).join('/');
 
-/** Every markdown file that should be reachable, excluding skills. */
+/** Every markdown file that should be reachable, excluding skills and retired material. */
 function universe() {
   const out = [];
   const walk = (dir) => {
     if (!fs.existsSync(dir)) return;
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, e.name);
-      if (e.isDirectory()) { if (rel(full) !== rel(SKILLS)) walk(full); }
-      else if (e.name.endsWith('.md')) out.push(rel(full));
+      const r = rel(full);
+      if (e.isDirectory()) { if (r !== rel(SKILLS) && r !== rel(LEGACY)) walk(full); }
+      else if (e.name.endsWith('.md')) out.push(r);
     }
   };
   walk('.agents');
+  return out.sort();
+}
+
+/** Retired files, so the count is visible rather than silently missing from the universe. */
+function archived() {
+  const out = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name.endsWith('.md')) out.push(rel(full));
+    }
+  };
+  walk(LEGACY);
   return out.sort();
 }
 
@@ -82,10 +114,12 @@ while (queue.length) {
 const pointers = POINTERS.filter((p) => fs.existsSync(p));
 const unreachable = files.filter((f) => !reached.has(f));
 const deadPointers = pointers.filter((p) => !reached.has(p));
+const retired = archived();
 
 console.log(`root     : ${INDEX}`);
 console.log(`files    : ${files.length} (excluding ${SKILLS})`);
 console.log(`reached  : ${files.filter((f) => reached.has(f)).length}`);
+if (retired.length) console.log(`retired  : ${retired.length} file(s) under ${LEGACY}/ — kept as reference, not read as rules`);
 
 console.log('\n=== skills referenced by rule files exist ===');
 const skillNames = new Set();
@@ -111,6 +145,26 @@ for (const p of pointers) console.log(`  ${reached.has(p) ? 'ok  ' : 'DEAD'} ${p
 if (missing.length) {
   console.log('\n=== referenced paths that do not exist ===');
   for (const m of [...new Set(missing)].sort()) console.log(`  MISSING ${m}`);
+}
+
+// Advisory only. Whether another harness's entry point is legitimate is a project decision, so
+// this never fails the build — but a stale one is how two rule sets stay active at once, which is
+// exactly what a migration is meant to end.
+console.log('\n=== other entry points (advisory) ===');
+const entryPoints = ENTRY_POINTS.filter((p) => fs.existsSync(p));
+const staleEntries = [];
+for (const p of entryPoints) {
+  let ok = false;
+  try { ok = fs.readFileSync(p, 'utf8').includes(INDEX); } catch { ok = false; }
+  console.log(`  ${ok ? 'ok   ' : 'STALE'} ${p}${ok ? '' : ` — does not mention ${INDEX}`}`);
+  if (!ok) staleEntries.push(p);
+}
+if (!entryPoints.length) console.log('  (none)');
+if (staleEntries.length) {
+  console.log('\n  Not a failure — another tool may own these files. But a stale entry point keeps');
+  console.log('  applying rules this index does not know about. Point it at the index, or fold its');
+  console.log('  rules into the overlay and delete it. From the agent-rules repository:');
+  console.log(`    node bin/rules-sync.mjs migrate --into <project> --point-at-index ${staleEntries[0]}`);
 }
 
 const problems = unreachable.length + missing.length + bad + deadPointers.length;

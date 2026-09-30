@@ -145,6 +145,29 @@ console.log('=== 7) templates/AGENTS.md routes every rule ===');
   }
 }
 
+console.log('=== 8) templates/AGENTS.md is safe to scaffold ===');
+{
+  const tpl = path.join('templates', 'AGENTS.md');
+  if (fs.existsSync(tpl)) {
+    const text = fs.readFileSync(tpl, 'utf8');
+    // The base vendors rules, never skills. A skill name in the template would fail
+    // check-index.mjs in every project `init` creates, because that skill does not exist there.
+    const skills = [...text.matchAll(/[Ss]kill[s]? `([a-z0-9-]+)`/g)].map((m) => m[1]);
+    if (skills.length) {
+      for (const s of skills) console.log(`  NAMED ${s}`);
+      fail(`templates/AGENTS.md names skill(s) ${skills.join(', ')} — the base vendors no skills, so every scaffolded project would fail check-index`);
+    } else {
+      console.log('  ok   names no skill the base would have to vendor');
+    }
+    // `init` creates the entry-point pointers, and check-index.mjs requires the index to reach
+    // them. If the template stops mentioning one, every freshly scaffolded project fails.
+    const pointers = ['.agents/AGENTS.md', '.agents/claude/CLAUDE.md', '.agents/codex/AGENTS.md'];
+    const unmentioned = pointers.filter((p) => !text.includes(p));
+    if (unmentioned.length) fail(`templates/AGENTS.md does not mention the pointer file(s) ${unmentioned.join(', ')} — check-index would report them DEAD in every scaffolded project`);
+    else console.log(`  ok   mentions all ${pointers.length} pointer file(s)`);
+  }
+}
+
 if (problems.length) {
   console.log('\nFAILED:');
   for (const p of problems) console.log('  - ' + p);

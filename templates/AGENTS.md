@@ -54,6 +54,30 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 
 Skills are named `.agents/skills/<name>/SKILL.md`.
 
+## Skills — project-local, and routed from here
+
+Skills live in the project, never in the base: `rules-sync` vendors rules only. A skill nothing
+names is as invisible as a rule nothing routes to, so give each one a row here with the task that
+should pull it in, and name it in backticks so `check-index.mjs` can verify it exists.
+
+| When the work is | Read |
+| :--- | :--- |
+| <the task that should load this skill> | `.agents/skills/<name>/SKILL.md` |
+
+Delete this section if the project has no skills. Keep the skill list short: a skill that is
+loaded on every task belongs in a rule, not in a skill.
+
+## Entry points — one index, thin pointers
+
+`.agents/AGENTS.md`, `.agents/claude/CLAUDE.md` and `.agents/codex/AGENTS.md` are thin pointers to
+this file, kept only so tools that look for an entry point where they expect one find it. **Do not
+add rules there** — `check-index.mjs` reports a pointer the index does not reach.
+
+If another harness reads a file of its own (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`,
+`.github/copilot-instructions.md`), point that file here as well. A second rule set beside this one
+is how this index stops being authoritative, and `migrate --point-at-index <rel>` from the
+`agent-rules` repository writes exactly that pointer.
+
 ## Vendored rules — generated, do not hand-edit
 
 Every `.agents/rules/*.md` except `project-truth.md` and `project-conventions.md` is **vendored**
