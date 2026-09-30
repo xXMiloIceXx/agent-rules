@@ -26,6 +26,10 @@ turns a legitimate `0` into the default.
 When you modify, detach, delete, replace or disable an upstream resource, handle **all**
 dependents explicitly. Never leave orphaned records, stale state, or dangling references.
 
+Anything derived at an immutable business boundary — a snapshot, a ledger entry, an aggregate —
+must be **replay-safe**: running it twice must not produce a second copy or a duplicate
+reference. Recover or reuse the existing state instead of creating another.
+
 ## 4. Action-aware validation
 
 Scope validation to the action actually being performed. Creation, approval, rejection,
@@ -51,3 +55,8 @@ inside the requested scope, and never perform unsolicited refactoring, rename un
 or alter an existing API, data or behavioural contract without an explicit requirement. When
 behaviour is ambiguous, infer it from the code, the callers, the tests and the domain rules
 before introducing new behaviour.
+
+## 8. Transition integrity
+
+Where a status has defined transition rules, status changes go through them. A free-form write
+that moves a record into a state the machine does not allow is a corruption bug, not a shortcut.
