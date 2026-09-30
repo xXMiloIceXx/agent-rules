@@ -55,4 +55,15 @@ frontmatter mechanism use this table instead — one set of files, two consumers
 - Keep this entry point an **index** — paths plus one line each — so an agent pulls two or three
   files rather than loading all of them.
 
+## Consuming and migrating
+
+`init` for a project with no rules, `sync` for routine updates, `migrate` for one that already has
+rules of its own. See `README.md` for the commands and their guarantees.
+
+A migration is not finished when the guards go green. The old corpus's project-specific facts —
+versions, runner, the subsystems it names — must be folded into that project's `project-truth.md`
+and `project-conventions.md` **before** the old files are retired, and its skills must be routed
+from its `AGENTS.md`: this base vendors rules, never skills. A rule that is deleted without being
+read is a rule that is lost.
+
 See `README.md` for the layer model, the activation modes, and the consumption mechanisms.

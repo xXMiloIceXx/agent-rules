@@ -48,23 +48,74 @@ Harnesses without a frontmatter mechanism (for example DSH) get the same effect 
 
 ## Consuming this repository
 
-Pick one mechanism. They trade reproducibility against setup cost.
+The mechanism is **vendored files, committed into the project**. `rules-sync` writes
+`.agents/rules/*.md` into the project with a `GENERATED` stamp, writes the two guard scripts into
+`.agents/bin/`, and records a sha256 per file in `.agents/rules.lock.json`. Nothing is fetched at
+build time and nothing is installed, so a fresh clone, a CI runner and an offline laptop all see
+the same rules — and `check` proves the project's copy still matches its lock.
 
-| Mechanism | How | Trade-off |
-| :--- | :--- | :--- |
-| **Sibling clone** | Clone beside each workspace; the project's `.agents/rules.json` inherits `../agent-rules/.agents/rules.json` | Simplest; depends on a local convention that a fresh CI checkout will not have |
-| **Submodule** | Add as a git submodule at a fixed path; inherit that path | Reproducible everywhere, including CI; submodules need discipline |
-| **Vendored clone** | A setup script clones this repo into a gitignored path, pinned to a commit | Reproducible and CI-friendly; needs a script, like the archify pattern |
-| **Global plugin** | Package as an Antigravity plugin so all workspaces get it | Best for "every workspace"; requires plugin packaging |
+| Situation | Command — run from **this** repository |
+| :--- | :--- |
+| A project with no agent rules at all | `node bin/rules-sync.mjs init --into <projectDir>` |
+| A project that already has rules of its own | `node bin/rules-sync.mjs migrate --into <projectDir> …` |
+| Routine update after this base changed | `node bin/rules-sync.mjs sync --into <projectDir>` |
+| Anywhere, with no copy of this repository | `node .agents/bin/rules-sync.mjs check` |
 
-Whichever you choose, the project side is the same shape:
+Add `--dry-run` to any of the first three to see the plan without writing.
 
-```json
-{
-  "inherits": [{ "path": "<path-to-this-repo>/.agents/rules.json" }],
-  "entries": []
-}
+`.agents/rules.json` stays empty. It is Antigravity's inheritance manifest, and this base does not
+use that mechanism: an `inherits` path is a local convention that a fresh CI checkout does not
+have — which is exactly the failure mode that vendoring removes. The rule files themselves still
+carry the frontmatter Antigravity needs, so one set of files serves both consumers.
+
+## Adopting an existing project — replacing its old rules
+
+A repository that already has agent rules needs a **migration**, not a sync: `sync` vendors the
+rules but will not touch a project-owned index, and it fails rather than reporting success when
+that index routes nothing it just wrote. `migrate` is the command that finishes the job.
+
+```bash
+# 0. See the whole plan first. Writes nothing.
+node bin/rules-sync.mjs migrate --into "<projectDir>" --replace-index --retire --dry-run
+
+# 1. Vendor the base, adopt the index, retire the old corpus.
+node bin/rules-sync.mjs migrate --into "<projectDir>" --replace-index --retire
 ```
+
+What that one command does, and does not do:
+
+| Step | Behaviour |
+| :--- | :--- |
+| Vendor the rules | Writes `.agents/rules/*.md`, `.agents/bin/*`, `.agents/rules.lock.json`. Never touches `project-truth.md`, `project-conventions.md` or any file it did not write. |
+| Adopt the index | `AGENTS.md` is created if the project has none. `--replace-index` overwrites one that exists, after copying it to `AGENTS.md.pre-migrate.bak` — the original is never lost. Without it, an existing index is kept and reported. |
+| Scaffold what the index routes | Adds the two overlay files and the CI guard workflow if they are missing. Existing files are left alone. |
+| Point other harnesses at the index | Creates `.agents/AGENTS.md`, `.agents/claude/CLAUDE.md` and `.agents/codex/AGENTS.md` pointers when they are absent. A monolith (`CLAUDE.md`, `.cursorrules`, `GEMINI.md`, `.github/copilot-instructions.md`) is **reported, not edited** — see below. |
+| Retire the old corpus | `--retire` moves rule files the base did not write (`.agents/shared/*.md`, a hand-written `.agents/rules/*.md`) into `.agents/legacy/`, where `check-index` ignores them. **Moved, never deleted** — they stay in the repository as reference. |
+| Finish with evidence | Runs the project's own `.agents/bin/check-index.mjs`. A non-zero exit means the index does not route the rules yet; the command says so instead of reporting success. |
+
+Guarantees, because each of these was a bug once:
+
+- **A name collision aborts before anything is written.** A hand-written `.agents/rules/00-core.md`
+  is not the base's to overwrite: nothing is written — no lock, no half-vendored tree, no lock that
+  claims a subset is complete. `--force` replaces it, keeping the original as `<file>.bak`.
+- **The first backup wins.** Re-running with `--force` cannot bury the hand-written original under
+  the base's own previous copy.
+- **Nothing is deleted.** The old index becomes a `.bak`, the old corpus moves to `.agents/legacy/`.
+
+Then finish by hand, in the project — the tool cannot judge these:
+
+1. **Fold before you retire.** Facts and playbooks that only that project needs — its versions, its
+   runner, its subsystems — belong in `project-truth.md` and `project-conventions.md`. Read the old
+   corpus and move what is still true *before* `--retire`; a rule you delete is a rule you lose.
+2. **Route the project's skills.** This base vendors rules, never skills. A skill nothing names is
+   as invisible as a rule nothing routes to — add a row per skill to `AGENTS.md`.
+3. **Resolve every other entry point.** `migrate` lists the files it found and whether each one
+   mentions the index. A stale one keeps applying its own rules beside the index:
+   `--point-at-index <rel> --force` replaces it with a pointer and keeps `<rel>.bak`, or fold it
+   into the overlay and delete it. `--require-clean` turns anything unresolved into a failure —
+   useful as the last gate of a migration.
+4. **Commit.** Then `node .agents/bin/check-index.mjs && node .agents/bin/rules-sync.mjs check`
+   in CI, which is what the scaffolded workflow already runs.
 
 ## Adding a stack
 
@@ -125,7 +176,7 @@ paths plus one line each — so the agent pulls two or three files instead of lo
 ```
 AGENTS.md                      # workspace-wide entry point for consuming projects (this repo's own)
 .agents/
-  rules.json                   # inheritance manifest
+  rules.json                   # Antigravity inheritance manifest — empty by design, see above
   rules/
     00-core.md                 # always_on
     01-security.md             # always_on
@@ -146,21 +197,41 @@ AGENTS.md                      # workspace-wide entry point for consuming projec
     jupyter.md                 # glob — notebooks and AI/ML experiments
     90-release-checklist.md    # manual
 bin/
-  rules-sync.mjs               # sync / init / check — the only thing that writes a project
+  rules-sync.mjs               # sync / init / migrate / check — the only thing that writes a project
   check-index.mjs              # rule-reachability guard, vendored into every project
   validate-rules.mjs           # this repository's own structure check
-templates/                     # what `init` scaffolds into a project that has none
-  AGENTS.md                    #   the index
+templates/                     # what `init` and `migrate` scaffold
+  AGENTS.md                    #   the index (routes rules, skills and the thin pointers)
   project-truth.md             #   project facts (overrides this base)
   project-conventions.md       #   project commands and layout
   workflow-agent-rules.yml     #   the two CI guard steps
 ```
 
+A consuming project ends up with this shape — every one of these is committed:
+
+```
+AGENTS.md                                   # the index (project-owned; migrate keeps a .bak)
+.agents/rules/<vendored>.md                 # 18 rules, stamped, never hand-edited
+.agents/rules/project-truth.md              # project-owned overlay
+.agents/rules/project-conventions.md        # project-owned overlay
+.agents/rules.lock.json                     # revision + sha256 per vendored file
+.agents/bin/rules-sync.mjs                  # check-only copy, needs no clone of this base
+.agents/bin/check-index.mjs                 # rule-reachability guard
+.agents/AGENTS.md, .agents/claude/CLAUDE.md, .agents/codex/AGENTS.md   # thin pointers
+.agents/legacy/…                            # retired rules, kept as reference (migrate only)
+.github/workflows/agent-rules.yml           # the two guard steps
+```
+
 ## Status
 
-Version 0, in use. A consuming project gets its rules by running `sync`, and a brand-new one is
-bootstrapped with `init`: rules, the index that makes them reachable, the two overlay files, and a
-guard workflow. Both are re-runnable and never overwrite a project-owned file.
+Version 1, in use by more than one project. Three entry points, all re-runnable, none of which
+overwrite a project-owned file: `init` for a project with no rules, `migrate` for one that already
+has its own, `sync` for routine updates. `migrate` is the answer to "replace the old rules": it
+adopts the index with a backup, retires the old corpus into `.agents/legacy/` instead of deleting
+it, reports every other entry point, and ends by running the project's own guard so a green exit
+means the project's CI will be green too.
 
-The base is checked on every push: rule structure and reachability, plus a smoke test that
-bootstraps a scratch project and verifies both guards pass there.
+The base is checked on every push: rule structure, reachability and template safety, plus smoke
+tests that bootstrap a scratch project, refresh it, and migrate a legacy fixture — asserting that a
+name collision writes nothing at all, that `--force` keeps the original, and that a legacy corpus
+ends up retired with both guards passing.
