@@ -1,0 +1,37 @@
+name: Validate Rules
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Rule structure & sync smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No dependency install: validate-rules.mjs is deliberately dependency-free, so a bad
+      # rule is caught in the repository that owns it rather than after it has been vendored
+      # into several projects.
+      - name: Validate Rule Structure
+        run: node bin/validate-rules.mjs
+
+      # Proves the two halves of the tool still work together on a fresh checkout: that sync
+      # writes a project, and that the vendored copy can check it without this repository.
+      - name: Smoke-test rules-sync
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)"
+          git init -q "$scratch"
+          node bin/rules-sync.mjs sync --into "$scratch"
+          node "$scratch/.agents/bin/rules-sync.mjs" check --project "$scratch"
