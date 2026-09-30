@@ -1,0 +1,5 @@
+# Normalise line endings to LF everywhere. These files are read by agents on every
+# platform; mixed endings make cross-platform diffs noisy and confuse markdown tooling.
+* text=auto eol=lf
+
+# Binary assets (none yet) would opt out explicitly here.
