@@ -29,6 +29,36 @@ here, the project wins.
 - Prefer explicit `$fillable` over `$guarded = []`, and keep `status`, `role` and similar
   privilege-bearing fields out of mass assignment.
 
+## PHP house style
+
+- Strict types where the project enables them; type-hint parameters and return values.
+- Prefer readonly properties and immutable value objects for data that does not change.
+- Avoid magic methods unless the framework requires them.
+- **Enum cases are `UPPER_SNAKE_CASE` with lowercase backing values** (`PENDING = 'pending'`)
+  unless the domain says otherwise.
+- **Class member order:** traits → constants → properties → constructor → methods. Never place a
+  constant between or inside methods.
+- Never put heavy data manipulation inside a DDL migration. Schema change and data change are
+  separate concerns with separate failure modes.
+
+## Transactions
+
+`DB::beginTransaction()` goes immediately **outside/before** the `try` block, never inside it.
+
+The reason is concrete: if `beginTransaction()` were itself inside the `try` and failed, the
+`catch` would call `rollBack()` with no active transaction and throw a secondary "no active
+transaction" error that masks the real one. Prepare external I/O before the transaction,
+compensate those artefacts when it fails, and run post-commit cleanup only after a successful
+commit.
+
+## Queries
+
+- Scope queries through named scopes or explicit conditions; avoid unguarded global query
+  modifications.
+- **A filter must distinguish "omitted" from a valid `0`, `false` or empty string.** A loose
+  truthy check on a filter parameter silently drops a legitimate value — a `0` bound returns every
+  row. See `02-axioms.md` §2.
+
 ## Commands to look for
 
 ```bash

@@ -25,6 +25,25 @@ When reviewing a diff, answer in this order:
 
 Report blockers with evidence: file, line, and the failing input or command.
 
+### Checklist, in priority order
+
+Security → Correctness → Performance → Architecture → Maintainability → Testing → Scope →
+Failure path.
+
+### Boundary checks worth running every time
+
+- **Null semantics.** Never coerce null or empty to zero or a default without explicit intent.
+- **Precision safety.** Watch for lossy casts on high-precision values (money, decimals) and for
+  default scale limits.
+- **End-to-end alignment.** Types and scale must agree across the schema, the casts, the request
+  rules and the service that consumes them.
+- **Boundary defence.** Division by zero, negative values, empty sets, scientific notation, and
+  off-by-one on the first and last page.
+- **Audit completeness.** A cross-cutting change usually has peripheral consumers: jobs, commands,
+  seeders, imports, exports, other entry points. Enumerate them.
+- **Filter semantics.** Does an omitted filter differ from a valid `0`/`false`/empty string? See
+  `02-axioms.md` §2.
+
 ## Refactoring
 
 - Refactoring and behaviour change are **separate commits**. Never mix them.

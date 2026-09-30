@@ -14,6 +14,18 @@ need to weaken this file.
 
 When two rules conflict, the higher priority wins. Say which one you followed, and why.
 
+**When rules themselves conflict, resolve in this order:**
+
+1. Security, authorization and data-integrity invariants
+2. The user's explicit instruction
+3. The project's architecture invariants
+4. The task's specific requirements
+5. General coding conventions
+6. Style and formatting preferences
+7. Performance optimisations
+
+Follow the higher-priority rule, and note the conflict when it matters.
+
 ## Execution protocol — before modifying any file
 
 1. **Inspect live code first.** Read the files you are about to change, trace their callers, read
@@ -23,10 +35,14 @@ When two rules conflict, the higher priority wins. Say which one you followed, a
 3. **Root cause, then risk.** Fix the cause, not the symptom. Ask explicitly: does this break
    existing callers? does it open an authorization, validation or data-integrity gap? does it move
    a transaction boundary, a cache lifecycle, or a public contract?
-4. **Ambiguity gate.** If the request admits materially different designs, present the options
-   with trade-offs and stop. Do not silently pick one.
+4. **Ambiguity gate.** If the request admits materially different designs, do not silently pick
+   one: name the ambiguity, say why it matters, present the options with their trade-offs,
+   recommend one where you can, and stop for the decision. For a trivial ambiguity that cannot
+   change behaviour, take the smallest convention-aligned assumption and state it explicitly.
 5. **Plan, then stop.** List the exact files, symbols and schema changes in execution order, then
-   await confirmation. Read-only investigation does not require this gate.
+   await confirmation. When the harness supports a reviewable plan artefact, write the plan there
+   rather than into the chat, and keep the reply to a summary plus a link. Read-only
+   investigation does not require this gate.
 
 ## Evidence discipline
 

@@ -13,16 +13,22 @@ project pulls them in through `.agents/rules.json` `inherits` instead of copying
 
 | Read | Why |
 | :--- | :--- |
-| `.agents/rules/00-core.md` | Priority order, the execution protocol, evidence discipline, minimal change |
+| `.agents/rules/00-core.md` | Priority order, rule precedence, the execution protocol, evidence discipline, minimal change |
 | `.agents/rules/01-security.md` | Trust boundaries, authorization, injection, secrets, uploads |
+| `.agents/rules/02-axioms.md` | The recurring bug classes: falsy values, orphaned dependents, action-scoped rules, cross-mode drift |
 
 ## On-demand rules — loaded when the task matches
 
 | When | Read |
 | :--- | :--- |
-| Shaping or landing a change (diff size, commits, formatting) | `.agents/rules/10-change-discipline.md` |
+| Shaping or landing a change (diff size, commits, abstractions, formatting) | `.agents/rules/10-change-discipline.md` |
 | Writing or changing tests | `.agents/rules/11-testing.md` |
 | Reviewing, debugging or refactoring | `.agents/rules/12-review-debugging.md` |
+| Queries, N+1, memory, caching | `.agents/rules/13-performance.md` |
+| Adding a `catch`, a retry, a fallback or a job | `.agents/rules/14-error-handling.md` |
+| Validation, a request object, a form's server contract | `.agents/rules/15-validation.md` |
+| Writing a PR / MR description | `.agents/rules/20-pull-request.md` |
+| Naming a class, method, table, route, enum or component | `.agents/rules/21-naming.md` |
 | An explicit release or audit | `.agents/rules/90-release-checklist.md` |
 
 ## Stack rules — activated by the files you touch

@@ -105,6 +105,29 @@ for (const r of [...refs].sort()) {
 }
 console.log(`  checked ${refs.size} reference(s)`);
 
+console.log('=== 6) every rule file is reachable from AGENTS.md ===');
+{
+  const reached = new Set(['AGENTS.md']);
+  const queue = ['AGENTS.md'];
+  while (queue.length) {
+    const current = queue.shift();
+    let text = '';
+    try { text = fs.readFileSync(current, 'utf8'); } catch { continue; }
+    for (const m of text.matchAll(/`([A-Za-z0-9_./\-]+\.md)`/g)) {
+      const p = m[1];
+      const candidates = p.startsWith('.agents/') ? [p] : (p.includes('/') ? [] : [`${RULES_DIR.replace(/\\/g, '/')}/${p}`]);
+      for (const c of candidates) if (fs.existsSync(c) && !reached.has(c)) { reached.add(c); queue.push(c); }
+    }
+  }
+  const dead = [];
+  for (const f of files) {
+    const rel = `${RULES_DIR.replace(/\\/g, '/')}/${f}`;
+    if (reached.has(rel)) console.log(`  ok   ${rel}`);
+    else { console.log(`  DEAD ${rel} — nothing routes to it`); dead.push(f); }
+  }
+  if (dead.length) fail(`unreachable rule file(s): ${dead.join(', ')}`);
+}
+
 if (problems.length) {
   console.log('\nFAILED:');
   for (const p of problems) console.log('  - ' + p);
