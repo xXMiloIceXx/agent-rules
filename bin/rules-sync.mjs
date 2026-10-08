@@ -122,6 +122,19 @@ const FOREIGN_PATHS = [
 /** Skills directory Boost shares with this base's project-local skills. */
 const SHARED_SKILLS = '.agents/skills';
 
+/** Skills installed and maintained by Laravel Boost (do not trigger namesake warnings). */
+const BOOST_OWNED_SKILLS = new Set([
+  'deploying-to-cloud',
+  'echo-development',
+  'infer-conventions',
+  'inertia-laravel-backend',
+  'inertia-vue-development',
+  'laravel-best-practices',
+  'octane-development',
+  'tailwindcss-development',
+  'testing-best-practices',
+]);
+
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 const posix = (p) => p.split(path.sep).join('/');
 const relFromRoot = (root, p) => posix(path.relative(root, p));
@@ -380,9 +393,10 @@ function reportForeign(project, foreign) {
     console.log('  OUTSIDE the marker block. Nothing here was modified.');
   }
   const skills = sharedSkills(project);
-  if (skills.length && names.includes('Laravel Boost')) {
-    console.log(`  WARNING ${SHARED_SKILLS}/ holds ${skills.length} skill(s) (${skills.slice(0, 3).join(', ')}${skills.length > 3 ? ', …' : ''})`);
-    console.log('  and Boost installs skills at that same path. A namesake would be deleted and re-copied');
+  const projectCustomSkills = skills.filter((s) => !BOOST_OWNED_SKILLS.has(s));
+  if (projectCustomSkills.length && names.includes('Laravel Boost')) {
+    console.log(`  NOTE: ${SHARED_SKILLS}/ holds ${projectCustomSkills.length} project-local skill(s) (${projectCustomSkills.slice(0, 3).join(', ')}${projectCustomSkills.length > 3 ? ', …' : ''})`);
+    console.log('  beside Boost\'s installed skills. A namesake would be deleted and re-copied');
     console.log('  by the next boost:update. Keep project-local skill names distinct from Boost\'s.');
   }
   console.log('');
