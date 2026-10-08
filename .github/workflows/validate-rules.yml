@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Rule structure & sync smoke test
+    name: Rule structure & smoke tests
     runs-on: ubuntu-latest
 
     steps:
@@ -20,80 +20,14 @@ jobs:
         with:
           node-version: '20'
 
-      # No dependency install: validate-rules.mjs is deliberately dependency-free, so a bad
-      # rule is caught in the repository that owns it rather than after it has been vendored
-      # into several projects.
+      # No dependency install: validate-rules.mjs is deliberately dependency-free, so a bad rule is
+      # caught in the repository that owns it rather than after it has been vendored into several
+      # projects.
       - name: Validate Rule Structure
         run: node bin/validate-rules.mjs
 
-      # Proves the two halves of the tool still work together on a fresh checkout: that a project
-      # gets written and refreshed, and that the vendored copy can check it without this repository.
-      - name: Smoke-test rules-sync
-        run: |
-          set -euo pipefail
-          scratch="$(mktemp -d)"
-          git init -q "$scratch"
-          node bin/rules-sync.mjs init --into "$scratch"
-          node bin/rules-sync.mjs sync --into "$scratch"
-          node "$scratch/.agents/bin/rules-sync.mjs" check --project "$scratch"
-          node "$scratch/.agents/bin/check-index.mjs" --project "$scratch"
-
-      # And that the whole bootstrap works: init writes the rules AND the project-owned files that
-      # make them reachable, after which both guards pass in the new project.
-      - name: Smoke-test rules-sync init on a new project
-        run: |
-          set -euo pipefail
-          scratch="$(mktemp -d)/new-project"
-          node bin/rules-sync.mjs init --into "$scratch"
-          test -f "$scratch/AGENTS.md"
-          test -f "$scratch/.agents/rules/project-truth.md"
-          test -f "$scratch/.agents/AGENTS.md"
-          test -f "$scratch/.agents/claude/CLAUDE.md"
-          test -f "$scratch/.agents/codex/AGENTS.md"
-          node "$scratch/.agents/bin/check-index.mjs" --project "$scratch"
-          node "$scratch/.agents/bin/rules-sync.mjs" check --project "$scratch"
-          # No placeholder may survive into a scaffolded file.
-          ! grep -rq '{{' "$scratch/AGENTS.md" "$scratch/.agents/rules/project-truth.md"
-
-      # Adoption is what a project with rules of its own runs, and the path that used to leave a
-      # half-migrated tree behind while reporting success. Assert the guarantees, not the wording.
-      - name: Smoke-test adoption of a project that already has rules
-        run: |
-          set -euo pipefail
-
-          legacy="$(mktemp -d)/legacy-project"
-          git init -q "$legacy"
-          mkdir -p "$legacy/.agents/shared"
-          printf '# Old index\n\nRead `.agents/rules/old.md` for everything.\n' > "$legacy/AGENTS.md"
-          printf '# Old corpus\n' > "$legacy/.agents/shared/permissions.md"
-
-          # A sync must not claim success while the project's index routes nothing it wrote.
-          if node bin/rules-sync.mjs sync --into "$legacy"; then
-            echo "sync reported success against a foreign index"; exit 1
-          fi
-
-          # migrate finishes the job: index adopted, original kept, corpus retired, guards green.
-          node bin/rules-sync.mjs migrate --into "$legacy" --replace-index --retire
-          node "$legacy/.agents/bin/check-index.mjs" --project "$legacy"
-          node "$legacy/.agents/bin/rules-sync.mjs" check --project "$legacy"
-          test -f "$legacy/AGENTS.md.pre-migrate.bak"
-          grep -q 'old.md' "$legacy/AGENTS.md.pre-migrate.bak"
-          test -f "$legacy/.agents/legacy/shared/permissions.md"
-          ! test -f "$legacy/.agents/shared/permissions.md"
-
-          # A name collision aborts BEFORE writing: no lock, no sibling, no damage.
-          conflict="$(mktemp -d)/conflict-project"
-          git init -q "$conflict"
-          mkdir -p "$conflict/.agents/rules"
-          printf '# hand written rules\n' > "$conflict/.agents/rules/00-core.md"
-          if node bin/rules-sync.mjs sync --into "$conflict"; then
-            echo "sync did not refuse a hand-written rule file"; exit 1
-          fi
-          ! test -f "$conflict/.agents/rules.lock.json"
-          ! test -f "$conflict/.agents/rules/01-security.md"
-          grep -q 'hand written rules' "$conflict/.agents/rules/00-core.md"
-
-          # --force may replace it, but never without keeping the original.
-          node bin/rules-sync.mjs migrate --into "$conflict" --force --replace-index
-          grep -q 'hand written rules' "$conflict/.agents/rules/00-core.md.bak"
-          node "$conflict/.agents/bin/check-index.mjs" --project "$conflict"
+      # The smoke tests live in tests/smoke.sh, not inline here, so the same command runs on a
+      # developer's machine and on CI. Inline steps could only be run by pushing, which is how the
+      # two bugs those steps were written to catch got in.
+      - name: Smoke Tests
+        run: bash tests/smoke.sh

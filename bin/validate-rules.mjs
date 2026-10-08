@@ -168,6 +168,95 @@ console.log('=== 8) templates/AGENTS.md is safe to scaffold ===');
   }
 }
 
+console.log('=== 9) the journal obeys its own gate ===');
+{
+  const dir = path.join('.agents', 'journal');
+  // Deliberately duplicated rather than imported: this script runs with nothing installed, and a
+  // check that shares the implementation it checks cannot catch a change to that implementation.
+  const DESTINATIONS = /^(journal|project-truth|project-conventions|(base|stack|project):[A-Za-z0-9._/-]+)$/;
+  const REQUIRED = ['Id', 'Trigger', 'Change', 'Evidence', 'Lesson', 'Destination'];
+  let entries = 0;
+  if (!fs.existsSync(dir)) {
+    console.log('  (no journal yet)');
+  } else {
+    for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort()) {
+      const text = fs.readFileSync(path.join(dir, name), 'utf8');
+      for (const chunk of text.split(/^## /m).slice(1)) {
+        entries++;
+        const [heading, ...rest] = chunk.split(/\r?\n/);
+        const body = rest.join('\n');
+        const field = (k) => {
+          const m = body.match(new RegExp(`^-\\s*${k}\\s*:\\s*(.*)$`, 'm'));
+          return m ? m[1].trim() : '';
+        };
+        const where = `${name} · ${heading.trim()}`;
+        const missing = REQUIRED.filter((k) => !field(k));
+        if (missing.length) { fail(`journal ${where}: missing ${missing.join(', ')}`); continue; }
+        const destination = field('Destination').replace(/`/g, '');
+        if (!DESTINATIONS.test(destination)) {
+          fail(`journal ${where}: Destination "${destination}" is not a known destination`);
+          continue;
+        }
+        // The gate. A lesson with no evidence may be recorded, but it may not be routed anywhere.
+        if (destination !== 'journal' && !/`[^`]+`/.test(field('Evidence'))) {
+          fail(`journal ${where}: Destination is ${destination} but Evidence carries no backticked command or path`);
+        }
+        const promoted = body.match(/^-\s*Promoted:\s*`([^`]+)`/m);
+        if (promoted && !fs.existsSync(promoted[1])) {
+          fail(`journal ${where}: promoted into ${promoted[1]}, which does not exist`);
+        }
+        if (promoted && destination === 'journal') {
+          fail(`journal ${where}: promoted, but Destination is journal — a lesson with no destination cannot be promoted`);
+        }
+      }
+    }
+    console.log(`  ok   ${entries} entr${entries === 1 ? 'y' : 'ies'}, all fields present, gate respected`);
+  }
+}
+
+console.log('=== 10) the local ignore has exactly one implementation ===');
+{
+  // `bin/setup.mjs` used to append to `.git/info/exclude` on its own, which meant the same project
+  // behaved differently depending on which documented entry point was used, and the promise was
+  // never checked against git. It is a mapper now; the hiding lives in rules-sync `local`.
+  const setup = path.join('bin', 'setup.mjs');
+  if (!fs.existsSync(setup)) {
+    fail('bin/setup.mjs is missing — `npx agent-rules` would not work');
+  } else {
+    const text = fs.readFileSync(setup, 'utf8');
+    const writes = ['writeFileSync', 'appendFileSync', 'mkdirSync', 'createWriteStream', 'unlinkSync'].filter((f) => text.includes(f));
+    if (writes.length) {
+      fail(`bin/setup.mjs writes files itself (${writes.join(', ')}) — the local ignore must have one implementation, in rules-sync \`local\`, where it is checked against git`);
+    } else {
+      console.log('  ok   bin/setup.mjs maps arguments only');
+    }
+    for (const cmd of ['local', 'learn', 'journal']) {
+      if (!text.includes(`'${cmd}'`)) fail(`bin/setup.mjs does not know the \`${cmd}\` command — it would be misread as flags`);
+    }
+    console.log('  ok   bin/setup.mjs knows every command');
+  }
+}
+
+console.log('=== 11) CI runs the smoke tests that exist ===');
+{
+  // The smoke tests used to be inline in the workflow, so they could only be run by pushing. They
+  // live in tests/smoke.sh now, which is only an improvement if the workflow actually calls it —
+  // and if the file it calls is there.
+  const wf = path.join('.github', 'workflows', 'validate-rules.yml');
+  const smoke = path.join('tests', 'smoke.sh');
+  if (!fs.existsSync(smoke)) {
+    fail('tests/smoke.sh is missing — the promises in the README would be untested');
+  } else if (!fs.existsSync(wf)) {
+    fail(`${wf} is missing — nothing runs the smoke tests`);
+  } else {
+    const text = fs.readFileSync(wf, 'utf8');
+    if (!text.includes('tests/smoke.sh')) fail(`${wf} does not run tests/smoke.sh`);
+    else console.log('  ok   CI runs tests/smoke.sh');
+    if (!text.includes('bin/validate-rules.mjs')) fail(`${wf} does not run this script`);
+    else console.log('  ok   CI runs this script');
+  }
+}
+
 if (problems.length) {
   console.log('\nFAILED:');
   for (const p of problems) console.log('  - ' + p);

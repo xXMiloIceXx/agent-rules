@@ -1,6 +1,6 @@
 # Agent Rules — {{PROJECT}}
 
-The single always-on entry point for this workspace. A harness that injects workspace
+The single always-on entry point for this workspace, at `{{INDEX}}`. A harness that injects workspace
 instructions reads this file as the repository-wide entry point; Antigravity reads it as
 `<root>/AGENTS.md`. It holds the **index only** — rule bodies live in the files it routes to.
 
@@ -35,6 +35,7 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 | Anything, before the first code change | `.agents/rules/project-truth.md` (facts) + `.agents/rules/project-conventions.md` (commands) |
 | Behavioural law: priority, protocol, evidence, minimal change | `.agents/rules/00-core.md` |
 | The recurring bug classes: falsy values, orphaned dependents, action-scoped rules | `.agents/rules/02-axioms.md` |
+| Finishing a task: the journal entry, where the lesson belongs, the evidence gate | `.agents/rules/03-iteration.md` |
 | Security, authorization, secrets | `.agents/rules/01-security.md` |
 | Diff size, commit shape, abstractions, formatting | `.agents/rules/10-change-discipline.md` |
 | Writing or changing tests | `.agents/rules/11-testing.md` |
@@ -77,6 +78,31 @@ If another harness reads a file of its own (`CLAUDE.md`, `GEMINI.md`, `.cursorru
 `.github/copilot-instructions.md`), point that file here as well. A second rule set beside this one
 is how this index stops being authoritative, and `migrate --point-at-index <rel>` from the
 `agent-rules` repository writes exactly that pointer.
+
+## Foreign rule sets — detected, never written
+
+Another tool may already own instruction files here: Laravel Boost (`<laravel-boost-guidelines>` in
+`AGENTS.md` or `CLAUDE.md`, plus the `.ai/` tree), a cloud agent's `CLAUDE.md`, a `.cursor/rules/`
+directory. `rules-sync` lists them on every `init`, `local` and `migrate`, and **writes none of
+them**. A file another tool regenerates is not a safe place to put a rule, and a rule that goes
+quiet without an error is worse than one that was never written.
+
+Boost replaces only its first marker block, in place, and leaves everything outside it untouched — so
+a routing row you add **outside** that block survives `boost:update`. Adding it is your decision:
+the file is not this base's, and Boost's behaviour is Boost's to change. `check-index.mjs` reports
+these files as `THEIRS`, not as stale, so the warning stays meaningful.
+
+One collision is worth knowing before it bites: `.agents/skills/` is where this base routes the
+project's own skills, and it is also where Boost installs skills for Antigravity, Codex, Amp and Zed.
+Boost deletes and re-copies an installed skill directory, so a project-local skill sharing a name
+with an installed one is destroyed by the next `boost:update` with no warning. Keep the names
+distinct.
+
+## The journal — history, not rules
+
+`.agents/journal/**` records one entry per task: what triggered it, what changed, what proved it, the
+lesson, and where that lesson belongs. `check-index.mjs` counts it and shows anything still awaiting
+promotion; it never fails the build on it and never routes it as a rule. See `03-iteration.md`.
 
 ## Vendored rules — generated, do not hand-edit
 

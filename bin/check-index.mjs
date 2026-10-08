@@ -27,11 +27,32 @@ const i = process.argv.indexOf('--project');
 const ROOT = path.resolve(i === -1 ? process.cwd() : process.argv[i + 1]);
 process.chdir(ROOT);
 
-const INDEX = 'AGENTS.md';
+const rel = (p) => p.split(path.sep).join('/');
+
+/**
+ * The index is the root `AGENTS.md` unless the project's own lock names another path.
+ *
+ * `local` mode writes the index to `.agents/AGENTS.md` when the root file belongs to another tool,
+ * and records that in the lock — so this script finds it without being told. That matters because
+ * CI runs this command with no arguments at all.
+ */
+function resolveIndex() {
+  const flag = process.argv.indexOf('--index');
+  if (flag !== -1 && process.argv[flag + 1]) return rel(process.argv[flag + 1]);
+  try {
+    const lock = JSON.parse(fs.readFileSync('.agents/rules.lock.json', 'utf8'));
+    if (typeof lock.index === 'string' && lock.index) return lock.index;
+  } catch { /* no lock: fall back to the convention */ }
+  return 'AGENTS.md';
+}
+
+const INDEX = resolveIndex();
 const SEARCH_DIRS = ['.agents/rules', '.agents/shared'];
 const SKILLS = '.agents/skills';
 /** Retired material: kept in the repository as reference, deliberately not read as rules. */
 const LEGACY = '.agents/legacy';
+/** Project history, not rules: read when a lesson is promoted, never routed as a rule. */
+const JOURNAL = '.agents/journal';
 /** Entry points other tools look for. Only the ones that exist are checked. */
 const POINTERS = ['.agents/AGENTS.md', '.agents/claude/CLAUDE.md', '.agents/codex/AGENTS.md'];
 /**
@@ -43,10 +64,17 @@ const ENTRY_POINTS = [
   'CLAUDE.md', 'GEMINI.md', '.geminirules', '.cursorrules', '.windsurfrules',
   '.claude/CLAUDE.md', '.github/copilot-instructions.md',
 ];
+/**
+ * Markers belonging to another tool. A file carrying one is not stale — it is someone else's, and
+ * reporting it as stale on every run is how a real warning gets ignored. Laravel Boost replaces
+ * only its first block, in place, so this file is reported and left alone.
+ */
+const FOREIGN_MARKERS = [
+  { owner: 'Laravel Boost', open: '<laravel-boost-guidelines>' },
+];
 
-const rel = (p) => p.split(path.sep).join('/');
-
-/** Every markdown file that should be reachable, excluding skills and retired material. */
+/** Every markdown file that should be reachable, excluding skills, retired material and the
+ *  journal — none of which is read as a rule. */
 function universe() {
   const out = [];
   const walk = (dir) => {
@@ -54,12 +82,33 @@ function universe() {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, e.name);
       const r = rel(full);
-      if (e.isDirectory()) { if (r !== rel(SKILLS) && r !== rel(LEGACY)) walk(full); }
-      else if (e.name.endsWith('.md')) out.push(r);
+      if (e.isDirectory()) {
+        if (r !== rel(SKILLS) && r !== rel(LEGACY) && r !== rel(JOURNAL)) walk(full);
+      } else if (e.name.endsWith('.md')) out.push(r);
     }
   };
   walk('.agents');
   return out.sort();
+}
+
+/** One record per journal entry: the destination it claims, and whether it was ever promoted. */
+function journalEntries() {
+  if (!fs.existsSync(JOURNAL)) return [];
+  const out = [];
+  for (const f of fs.readdirSync(JOURNAL).filter((n) => n.endsWith('.md')).sort()) {
+    const text = fs.readFileSync(path.join(JOURNAL, f), 'utf8');
+    for (const chunk of text.split(/^## /m).slice(1)) {
+      const [heading, ...rest] = chunk.split(/\r?\n/);
+      const body = rest.join('\n');
+      const m = body.match(/^-\s*Destination:\s*(.*)$/m);
+      out.push({
+        heading: heading.trim(),
+        destination: (m ? m[1] : '').replace(/`/g, '').trim(),
+        promoted: /^-\s*Promoted:/m.test(body),
+      });
+    }
+  }
+  return out;
 }
 
 /** Retired files, so the count is visible rather than silently missing from the universe. */
@@ -87,6 +136,17 @@ function references(text) {
     for (const dir of SEARCH_DIRS) if (fs.existsSync(path.join(dir, p))) out.add(rel(path.join(dir, p)));
   }
   return [...out];
+}
+
+/** The root entry point may belong to another tool even when this project routes its rules
+ *  elsewhere — which is exactly why it routes them elsewhere. Say who owns it, so the `root:` line
+ *  above reads as a decision rather than an accident. */
+function foreignRootOwner() {
+  const root = 'AGENTS.md';
+  if (!fs.existsSync(root) || root === INDEX) return null;
+  const text = fs.readFileSync(root, 'utf8');
+  const owner = FOREIGN_MARKERS.find((m) => text.includes(m.open));
+  return owner ? owner.owner : null;
 }
 
 if (!fs.existsSync(INDEX)) {
@@ -117,9 +177,16 @@ const deadPointers = pointers.filter((p) => !reached.has(p));
 const retired = archived();
 
 console.log(`root     : ${INDEX}`);
-console.log(`files    : ${files.length} (excluding ${SKILLS})`);
+console.log(`files    : ${files.length} (excluding ${SKILLS} and ${JOURNAL})`);
 console.log(`reached  : ${files.filter((f) => reached.has(f)).length}`);
 if (retired.length) console.log(`retired  : ${retired.length} file(s) under ${LEGACY}/ — kept as reference, not read as rules`);
+
+const rootOwner = foreignRootOwner();
+if (rootOwner) {
+  console.log(`note     : the root AGENTS.md carries a ${rootOwner} marker, so it is not this`);
+  console.log('           project\'s index and nothing here rewrites it. The rules are routed from');
+  console.log(`           ${INDEX} instead, which is what the lock records.`);
+}
 
 console.log('\n=== skills referenced by rule files exist ===');
 const skillNames = new Set();
@@ -152,19 +219,49 @@ if (missing.length) {
 // exactly what a migration is meant to end.
 console.log('\n=== other entry points (advisory) ===');
 const entryPoints = ENTRY_POINTS.filter((p) => fs.existsSync(p));
-const staleEntries = [];
+const staleEntries = [], foreignEntries = [];
 for (const p of entryPoints) {
-  let ok = false;
-  try { ok = fs.readFileSync(p, 'utf8').includes(INDEX); } catch { ok = false; }
-  console.log(`  ${ok ? 'ok   ' : 'STALE'} ${p}${ok ? '' : ` — does not mention ${INDEX}`}`);
-  if (!ok) staleEntries.push(p);
+  let text = '';
+  try { text = fs.readFileSync(p, 'utf8'); } catch { text = ''; }
+  if (text.includes(INDEX)) { console.log(`  ok      ${p}`); continue; }
+  const owner = FOREIGN_MARKERS.find((m) => text.includes(m.open));
+  if (owner) {
+    console.log(`  THEIRS  ${p} — ${owner.owner} owns this file (carries \`${owner.open}\`)`);
+    foreignEntries.push({ rel: p, owner: owner.owner });
+    continue;
+  }
+  console.log(`  STALE   ${p} — does not mention ${INDEX}`);
+  staleEntries.push(p);
 }
 if (!entryPoints.length) console.log('  (none)');
+if (foreignEntries.length) {
+  console.log(`\n  ${foreignEntries.length} file(s) above belong to another tool and are never rewritten here.`);
+  console.log('  That tool replaces only the block between its own markers, in place, so a row added');
+  console.log('  OUTSIDE that block survives its next update — but adding it is your decision, not this');
+  console.log('  script\'s, because the file is not ours. Add the row yourself if you want this index read.');
+}
 if (staleEntries.length) {
   console.log('\n  Not a failure — another tool may own these files. But a stale entry point keeps');
   console.log('  applying rules this index does not know about. Point it at the index, or fold its');
   console.log('  rules into the overlay and delete it. From the agent-rules repository:');
   console.log(`    node bin/rules-sync.mjs migrate --into <project> --point-at-index ${staleEntries[0]}`);
+}
+
+// The journal is the project's own history, not rules, so it never fails the build. But an entry
+// whose destination was never promoted is a lesson that was recorded and then lost, and that is
+// worth repeating on every run until someone resolves it.
+console.log('\n=== journal (advisory) ===');
+const journal = journalEntries();
+if (!journal.length) {
+  console.log(`  (no entries under ${JOURNAL}/)`);
+} else {
+  const pending = journal.filter((e) => e.destination && e.destination !== 'journal' && !e.promoted);
+  console.log(`  ${journal.length} entr${journal.length === 1 ? 'y' : 'ies'}, ${pending.length} awaiting promotion`);
+  for (const e of pending) console.log(`  PENDING ${e.heading} → ${e.destination}`);
+  if (pending.length) {
+    console.log('  Fold the lesson into the target file, then stamp it from the agent-rules repository:');
+    console.log('    node bin/rules-sync.mjs journal --into <project> --promote <id> --to <path>');
+  }
 }
 
 const problems = unreachable.length + missing.length + bad + deadPointers.length;

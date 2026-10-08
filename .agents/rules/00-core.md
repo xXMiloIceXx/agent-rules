@@ -44,6 +44,24 @@ Follow the higher-priority rule, and note the conflict when it matters.
    rather than into the chat, and keep the reply to a summary plus a link. Read-only
    investigation does not require this gate.
 
+## Closing protocol — after finishing a task
+
+The mirror of the protocol above. Work that changed something and recorded nothing gets rediscovered
+in a month by someone who pays for it twice.
+
+1. **Say what changed and what proves it.** The command you ran, and what it printed. "Should work"
+   is not a result.
+2. **Record one journal entry** — `node bin/rules-sync.mjs learn --into <project> --task "<slug>"
+   --entry <file>` — with the trigger, the change, the evidence and the lesson. `Lesson: none` is a
+   valid and common answer; do not invent one to fill the field.
+3. **Route the lesson.** A project fact belongs in that project's overlay, portable law belongs in
+   the base, and anything unproven stays in the journal. See `03-iteration.md` for the tree — and
+   obey the evidence gate rather than arguing with it.
+4. **Stamp it once it lands** — `journal --promote <id> --to <path>`. A destination that is never
+   promoted is a lesson recorded and then lost, which is the one outcome this loop exists to prevent.
+
+A task with nothing to record still gets one line, saying so.
+
 ## Evidence discipline
 
 - **Verify, do not infer.** When a tool or a user reports a problem, read the code path or

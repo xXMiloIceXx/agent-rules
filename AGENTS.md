@@ -30,6 +30,7 @@ project pulls them in through `.agents/rules.json` `inherits` instead of copying
 | Writing a PR / MR description | `.agents/rules/20-pull-request.md` |
 | Naming a class, method, table, route, enum or component | `.agents/rules/21-naming.md` |
 | An explicit release or audit | `.agents/rules/90-release-checklist.md` |
+| Finishing a task: the journal entry, where the lesson belongs, the evidence gate | `.agents/rules/03-iteration.md` |
 
 ## Stack rules — activated by the files you touch
 
@@ -58,7 +59,26 @@ frontmatter mechanism use this table instead — one set of files, two consumers
 ## Consuming and migrating
 
 `init` for a project with no rules, `sync` for routine updates, `migrate` for one that already has
-rules of its own. See `README.md` for the commands and their guarantees.
+rules of its own, and `local` for one whose rules must not be pushed. See `README.md` for the
+commands and their guarantees.
+
+`local` exists for the repository that already carries another tool's rule corpus — Laravel Boost's
+`<laravel-boost-guidelines>` block and `.ai/` tree, a cloud agent's `CLAUDE.md`. It writes only into
+paths git does not track, hides them through a delimited block in `.git/info/exclude` (local to one
+clone, never committed), and **refuses** when a path it must hide is already tracked, because an
+ignore rule does nothing to a tracked file. The cost is stated rather than hidden: a fresh clone, a
+teammate and a CI runner get none of these rules.
+
+Files another tool owns are reported and never written — not even to add a routing row. `local`
+prints the row for you to add yourself, outside any marker block.
+
+## Closing the loop
+
+Work done under this base is supposed to change it. `.agents/rules/03-iteration.md` defines the path
+from a finished task to a rule: one journal entry in the consuming project, a destination, an
+evidence gate, and a promotion step that is stamped so a pending lesson is visible instead of
+assumed done. The base keeps its own journal in `.agents/journal/` — the lessons that produced the
+guards in `bin/`, with the failure each one came from.
 
 A migration is not finished when the guards go green. The old corpus's project-specific facts —
 versions, runner, the subsystems it names — must be folded into that project's `project-truth.md`
