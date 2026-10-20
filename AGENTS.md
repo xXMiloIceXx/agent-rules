@@ -37,10 +37,10 @@ project vendors them into its own tree through `bin/rules-sync.mjs`.
 | Files | Read |
 | :--- | :--- |
 | `**/*.php`, `composer.json` | `.agents/rules/php-laravel.md` |
-| `resources/js/**`, `**/*.vue`, `**/*.ts` | `.agents/rules/vue-inertia-ts.md` |
-| `**/*.py`, `pyproject.toml` | `.agents/rules/python.md` |
-| `**/*.java`, `pom.xml`, `build.gradle*` | `.agents/rules/java.md` |
-| `**/*.c`, `**/*.cpp`, `**/*.h`, `CMakeLists.txt` | `.agents/rules/c-cpp.md` |
+| `resources/js/**`, `**/*.vue`, `**/*.ts`, `**/*.tsx` | `.agents/rules/vue-inertia-ts.md` |
+| `**/*.py`, `pyproject.toml`, `requirements*.txt`, `setup.py`, `setup.cfg` | `.agents/rules/python.md` |
+| `**/*.java`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle`, `settings.gradle.kts` | `.agents/rules/java.md` |
+| `**/*.c`, `**/*.cc`, `**/*.cpp`, `**/*.cxx`, `**/*.h`, `**/*.hpp`, `CMakeLists.txt`, `Makefile` | `.agents/rules/c-cpp.md` |
 | `**/*.ipynb` — notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
 
 Antigravity activates those automatically from the frontmatter `globs`. Harnesses without a

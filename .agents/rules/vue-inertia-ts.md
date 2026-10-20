@@ -53,8 +53,9 @@ When a numeric input or `v-model.number` yields `0` (or `""` when cleared), `0` 
 JavaScript — and `"0"` is falsy once it reaches PHP. Never write `value || fallback` for a numeric
 field — test `""` and `null` explicitly:
 
-```js
-const orUndefined = (value) => (value === "" || value === null ? undefined : value);
+```ts
+const orUndefined = <T>(value: T | "" | null | undefined): T | undefined =>
+  value === "" || value === null ? undefined : value;
 ```
 
 This has shipped as a real bug: a `0` bound was silently dropped and the filter returned every row.

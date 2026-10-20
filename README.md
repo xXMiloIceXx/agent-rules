@@ -302,7 +302,7 @@ AGENTS.md                                   # the index (project-owned; migrate 
 .agents/rules/project-conventions.md        # project-owned overlay
 .agents/rules.lock.json                     # revision + index path + sha256 per vendored file
 .agents/journal/…                           # one file per month, appended, never rewritten
-.agents/bin/rules-sync.mjs                  # check-only copy, needs no clone of this base
+.agents/bin/rules-sync.mjs                  # runs check, learn, journal; needs no clone of this base
 .agents/bin/check-index.mjs                 # rule-reachability guard
 .agents/AGENTS.md, .agents/claude/CLAUDE.md, .agents/codex/AGENTS.md   # thin pointers
 .agents/legacy/…                            # retired rules, kept as reference (migrate only)

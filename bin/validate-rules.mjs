@@ -14,6 +14,14 @@
  *  3. Source files are NOT stamped — the GENERATED marker belongs only in consuming projects.
  *  4. `.agents/rules.json` parses and its `inherits` / `entries` are arrays.
  *  5. Every `.agents/...` path referenced by the root AGENTS.md exists.
+ *  6. Every rule file is reachable from AGENTS.md.
+ *  7. templates/AGENTS.md routes every rule.
+ *  8. templates/AGENTS.md is safe to scaffold.
+ *  9. The journal obeys its own gate.
+ * 10. The local ignore has exactly one implementation.
+ * 11. CI runs the smoke tests that exist.
+ * 12. No zero-width spaces (U+200B) in markdown files.
+ * 13. Stack rules in AGENTS.md and templates/AGENTS.md match frontmatter globs.
  *
  * Exits 1 with a readable report on any failure.
  */
@@ -255,6 +263,63 @@ console.log('=== 11) CI runs the smoke tests that exist ===');
     if (!text.includes('bin/validate-rules.mjs')) fail(`${wf} does not run this script`);
     else console.log('  ok   CI runs this script');
   }
+}
+
+console.log('=== 12) no zero-width spaces in markdown files ===');
+{
+  let zeroWidthFound = 0;
+  const checkDir = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.git') || e.name === 'node_modules') continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) checkDir(full);
+      else if (e.name.endsWith('.md')) {
+        const buf = fs.readFileSync(full);
+        for (let i = 0; i < buf.length - 2; i++) {
+          if (buf[i] === 0xe2 && buf[i+1] === 0x80 && buf[i+2] === 0x8b) {
+            fail(`${full}: zero-width space (U+200B) at byte ${i}`);
+            zeroWidthFound++;
+          }
+        }
+      }
+    }
+  };
+  checkDir('.');
+  if (!zeroWidthFound) console.log('  ok   no U+200B zero-width spaces found');
+}
+
+console.log('=== 13) stack rules match frontmatter globs ===');
+{
+  const templatePath = path.join('templates', 'AGENTS.md');
+  const templateText = fs.existsSync(templatePath) ? fs.readFileSync(templatePath, 'utf8') : '';
+  const targets = [
+    { name: 'AGENTS.md', text: index },
+    { name: 'templates/AGENTS.md', text: templateText },
+  ];
+
+  for (const f of files) {
+    const text = fs.readFileSync(path.join(RULES_DIR, f), 'utf8');
+    const fm = parseFrontmatter(text);
+    const rawGlobs = fm?.trigger === 'glob' ? (fm.globs || fm.glob) : null;
+    if (rawGlobs) {
+      const declaredGlobs = rawGlobs.split(',').map((g) => g.trim()).filter(Boolean);
+      const rulePath = `.agents/rules/${f}`;
+      for (const target of targets) {
+        if (!target.text) continue;
+        const rowMatch = target.text.split(/\r?\n/).find((line) => line.includes(rulePath));
+        if (!rowMatch) {
+          fail(`${target.name} has no row for stack rule ${rulePath}`);
+          continue;
+        }
+        for (const g of declaredGlobs) {
+          if (!rowMatch.includes(`\`${g}\``)) {
+            fail(`${target.name} row for ${f} is missing glob \`${g}\` declared in its frontmatter`);
+          }
+        }
+      }
+    }
+  }
+  console.log('  ok   all stack rule globs represented in AGENTS.md and templates/AGENTS.md');
 }
 
 if (problems.length) {

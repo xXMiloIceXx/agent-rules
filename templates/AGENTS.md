@@ -28,16 +28,21 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 5. **Plan, then stop.** List the exact files, methods and schema changes in execution order, then
    await confirmation. Pure read-only investigation does not trigger this gate.
 
-## Routing Table — what to read for the task at hand
+## Core rules — read on every task
 
-| When the work touches | Read |
+| Read | Why |
 | :--- | :--- |
-| Anything, before the first code change | `.agents/rules/project-truth.md` (facts) + `.agents/rules/project-conventions.md` (commands) |
-| Behavioural law: priority, protocol, evidence, minimal change | `.agents/rules/00-core.md` |
-| The recurring bug classes: falsy values, orphaned dependents, action-scoped rules | `.agents/rules/02-axioms.md` |
-| Finishing a task: the journal entry, where the lesson belongs, the evidence gate | `.agents/rules/03-iteration.md` |
-| Security, authorization, secrets | `.agents/rules/01-security.md` |
-| Diff size, commit shape, abstractions, formatting | `.agents/rules/10-change-discipline.md` |
+| `.agents/rules/project-truth.md` | This project's verified facts (versions, runner, architecture invariants). Project files always win |
+| `.agents/rules/project-conventions.md` | This project's commands, directory layout and local playbooks |
+| `.agents/rules/00-core.md` | Priority order, rule precedence, the execution protocol, evidence discipline, minimal change |
+| `.agents/rules/01-security.md` | Trust boundaries, authorization, injection, secrets, uploads |
+| `.agents/rules/02-axioms.md` | The recurring bug classes: falsy values, orphaned dependents, action-scoped rules, cross-mode drift |
+
+## On-demand rules — loaded when the task matches
+
+| When | Read |
+| :--- | :--- |
+| Shaping or landing a change (diff size, commits, abstractions, formatting) | `.agents/rules/10-change-discipline.md` |
 | Writing or changing tests | `.agents/rules/11-testing.md` |
 | Reviewing, debugging or refactoring | `.agents/rules/12-review-debugging.md` |
 | Queries, N+1, memory, caching | `.agents/rules/13-performance.md` |
@@ -45,15 +50,19 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 | Validation, a request object, a form's server contract | `.agents/rules/15-validation.md` |
 | Writing a PR / MR description | `.agents/rules/20-pull-request.md` |
 | Naming a class, method, table, route, enum or component | `.agents/rules/21-naming.md` |
-| PHP / Laravel / database | `.agents/rules/php-laravel.md` |
-| Vue / Inertia / TypeScript | `.agents/rules/vue-inertia-ts.md` |
-| Python | `.agents/rules/python.md` |
-| Java / JVM builds | `.agents/rules/java.md` |
-| C / C++ | `.agents/rules/c-cpp.md` |
-| Jupyter notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
 | An explicit release or audit | `.agents/rules/90-release-checklist.md` |
+| Finishing a task: the journal entry, where the lesson belongs, the evidence gate | `.agents/rules/03-iteration.md` |
 
-Skills are named `.agents/skills/<name>/SKILL.md`.
+## Stack rules — activated by the files you touch
+
+| Files | Read |
+| :--- | :--- |
+| `**/*.php`, `composer.json` | `.agents/rules/php-laravel.md` |
+| `resources/js/**`, `**/*.vue`, `**/*.ts`, `**/*.tsx` | `.agents/rules/vue-inertia-ts.md` |
+| `**/*.py`, `pyproject.toml`, `requirements*.txt`, `setup.py`, `setup.cfg` | `.agents/rules/python.md` |
+| `**/*.java`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle`, `settings.gradle.kts` | `.agents/rules/java.md` |
+| `**/*.c`, `**/*.cc`, `**/*.cpp`, `**/*.cxx`, `**/*.h`, `**/*.hpp`, `CMakeLists.txt`, `Makefile` | `.agents/rules/c-cpp.md` |
+| `**/*.ipynb` — notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
 
 ## Skills — project-local, and routed from here
 
@@ -63,7 +72,7 @@ should pull it in, and name it in backticks so `check-index.mjs` can verify it e
 
 | When the work is | Read |
 | :--- | :--- |
-| <the task that should load this skill> | `.agents/skills/<name>/SKILL.md` |
+<!-- | <the task that should load this skill> | `.agents/skills/<name>/SKILL.md` | -->
 
 Delete this section if the project has no skills. Keep the skill list short: a skill that is
 loaded on every task belongs in a rule, not in a skill.
@@ -114,7 +123,8 @@ per file. This is why a fresh clone works with no submodule, package or global i
 - **Never edit a vendored file.** Edit the source in the `agent-rules` repository, commit it
   there, then run from that repository:
   `node bin/rules-sync.mjs sync --into "<this project>"`.
-  The vendored copy of the script can only `check` — by design, so a project cannot silently
+  The vendored copy of the script runs `check`, `learn`, and `journal`, while write operations
+  (`init`, `sync`, `migrate`, `local`) require the base repository — by design, so a project cannot silently
   diverge from the base.
 - **CI enforces it:** `node .agents/bin/rules-sync.mjs check` fails the build if a vendored file is
   modified, deleted, or out of sync.
