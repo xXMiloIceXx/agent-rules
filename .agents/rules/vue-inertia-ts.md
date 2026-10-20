@@ -14,8 +14,8 @@ rather than adding parallel ones.
 
 ## Vue
 
-- One root element per component; declare props and emits explicitly rather than guessing at
-  runtime.
+- Keep a single root element when a component is wrapped in `<Transition>` or relies on fallthrough
+  attributes (`$attrs`); declare props and emits explicitly rather than guessing at runtime.
 - Use the Composition API and `<script setup>` where the project does.
 - Prefer `ref` and `computed` over manual watchers, and avoid watchers that merely mirror state.
 - Keep components small and presentational; push cross-cutting state into composables.
@@ -49,8 +49,9 @@ rather than adding parallel ones.
 
 ## The falsy-value trap
 
-An `<input type="number">` v-model yields a **string**, and `"0"` is falsy in JavaScript. Never
-write `value || fallback` for a numeric field — test the empty string explicitly:
+When a numeric input or `v-model.number` yields `0` (or `""` when cleared), `0` is falsy in
+JavaScript — and `"0"` is falsy once it reaches PHP. Never write `value || fallback` for a numeric
+field — test `""` and `null` explicitly:
 
 ```js
 const orUndefined = (value) => (value === "" || value === null ? undefined : value);

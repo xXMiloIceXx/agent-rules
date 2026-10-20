@@ -51,16 +51,36 @@ in a month by someone who pays for it twice.
 
 1. **Say what changed and what proves it.** The command you ran, and what it printed. "Should work"
    is not a result.
-2. **Record one journal entry** — `node bin/rules-sync.mjs learn --into <project> --task "<slug>"
-   --entry <file>` — with the trigger, the change, the evidence and the lesson. `Lesson: none` is a
-   valid and common answer; do not invent one to fill the field.
+2. **Record one journal entry** — `node .agents/bin/rules-sync.mjs learn --task "<slug>" --entry <file>`
+   (or from the base repository: `node bin/rules-sync.mjs learn --into <project> ...`) — with the
+   trigger, the change, the evidence and the lesson. `Lesson: none` is a valid and common answer;
+   do not invent one to fill the field.
 3. **Route the lesson.** A project fact belongs in that project's overlay, portable law belongs in
    the base, and anything unproven stays in the journal. See `03-iteration.md` for the tree — and
    obey the evidence gate rather than arguing with it.
-4. **Stamp it once it lands** — `journal --promote <id> --to <path>`. A destination that is never
-   promoted is a lesson recorded and then lost, which is the one outcome this loop exists to prevent.
+4. **Stamp it once it lands** — `node .agents/bin/rules-sync.mjs journal --promote <id> --to <path>`.
+   A destination that is never promoted is a lesson recorded and then lost, which is the one outcome
+   this loop exists to prevent.
 
 A task with nothing to record still gets one line, saying so.
+
+## Handling `/learn` and rule/skill capture requests
+
+When the user invokes `/learn` or asks to save a rule, convention, or skill in this workspace,
+**do not** use generic file-creation defaults. Route the request strictly through this base's
+iteration protocol:
+
+1. **Never edit a vendored `.agents/rules/*.md` file** (anything listed in `.agents/rules.lock.json`),
+   and never create an unrouted `.agents/rules/*.md` file.
+2. **Record the journal entry first** via `node .agents/bin/rules-sync.mjs learn` with a concrete,
+   backticked `Evidence` field. If the lesson has no verifiable evidence yet, set `Destination: journal`
+   and tell the user why it cannot be promoted yet.
+3. **Apply the promotion immediately when the destination is project-local:**
+   - **Project fact** → edit `.agents/rules/project-truth.md`, then run `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/rules/project-truth.md`.
+   - **Project command or local trap** → edit `.agents/rules/project-conventions.md`, then run `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/rules/project-conventions.md`.
+   - **Reusable workflow (Skill)** → create `.agents/skills/<name>/SKILL.md` (first verifying `<name>` does not collide with an installed Laravel Boost skill), add its routing row to `AGENTS.md` under `## Skills`, and stamp `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/skills/<name>/SKILL.md`.
+   - **Portable stack or core rule (`base:...` / `stack:...`)** → leave the journal entry as `PENDING` in this project (do not touch the vendored rule file) and output the exact diff or command needed for the upstream `agent-rules` repository.
+4. **Verify before finishing:** always run `node .agents/bin/check-index.mjs && node .agents/bin/rules-sync.mjs check` after `/learn` completes.
 
 ## Evidence discipline
 

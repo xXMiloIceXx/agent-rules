@@ -26,7 +26,7 @@ const args = process.argv.slice(2);
 const first = args[0];
 
 // Commands whose project defaults to the current directory when --into is omitted.
-const CWD_DEFAULT = new Set(['init', 'sync', 'local']);
+const CWD_DEFAULT = new Set(['init', 'sync', 'local', 'learn', 'journal']);
 
 let finalArgs;
 if (args.includes('--help') || args.includes('-h')) {

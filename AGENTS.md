@@ -1,7 +1,7 @@
 # Agent Rules (Portable Base)
 
 This repository **is** the rule base. Opening it as a workspace uses its own rules; a consuming
-project pulls them in through `.agents/rules.json` `inherits` instead of copying files.
+project vendors them into its own tree through `bin/rules-sync.mjs`.
 
 **Precedence:**
 

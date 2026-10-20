@@ -22,9 +22,28 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SELF = fileURLToPath(import.meta.url);
+
+function defaultProject() {
+  if (fs.existsSync(path.join(process.cwd(), 'AGENTS.md')) || fs.existsSync(path.join(process.cwd(), '.agents'))) {
+    return process.cwd();
+  }
+  const selfDir = path.dirname(SELF);
+  const candidateVendored = path.resolve(selfDir, '..', '..');
+  if (fs.existsSync(path.join(candidateVendored, 'AGENTS.md')) || fs.existsSync(path.join(candidateVendored, '.agents'))) {
+    return candidateVendored;
+  }
+  const candidateBase = path.resolve(selfDir, '..');
+  if (fs.existsSync(path.join(candidateBase, 'AGENTS.md')) || fs.existsSync(path.join(candidateBase, '.agents'))) {
+    return candidateBase;
+  }
+  return process.cwd();
+}
 
 const i = process.argv.indexOf('--project');
-const ROOT = path.resolve(i === -1 ? process.cwd() : process.argv[i + 1]);
+const ROOT = path.resolve(i === -1 ? defaultProject() : process.argv[i + 1]);
 process.chdir(ROOT);
 
 const rel = (p) => p.split(path.sep).join('/');
@@ -166,7 +185,13 @@ while (queue.length) {
   try { text = fs.readFileSync(current, 'utf8'); }
   catch { missing.push(current); continue; }
   for (const ref of references(text)) {
-    if (!fs.existsSync(ref)) { missing.push(ref); continue; }
+    if (!fs.existsSync(ref)) {
+      if (!fs.existsSync('.agents/rules.lock.json') && fs.existsSync(path.join('templates', path.basename(ref)))) {
+        continue;
+      }
+      missing.push(ref);
+      continue;
+    }
     if (!reached.has(ref)) { reached.add(ref); queue.push(ref); }
   }
 }
@@ -259,8 +284,10 @@ if (!journal.length) {
   console.log(`  ${journal.length} entr${journal.length === 1 ? 'y' : 'ies'}, ${pending.length} awaiting promotion`);
   for (const e of pending) console.log(`  PENDING ${e.heading} → ${e.destination}`);
   if (pending.length) {
-    console.log('  Fold the lesson into the target file, then stamp it from the agent-rules repository:');
-    console.log('    node bin/rules-sync.mjs journal --into <project> --promote <id> --to <path>');
+    console.log('  Fold the lesson into the target file, then stamp it:');
+    console.log(fs.existsSync('.agents/bin/rules-sync.mjs')
+      ? '    node .agents/bin/rules-sync.mjs journal --promote <id> --to <path>'
+      : '    node bin/rules-sync.mjs journal --into <project> --promote <id> --to <path>');
   }
 }
 

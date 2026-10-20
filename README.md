@@ -61,7 +61,7 @@ copy still matches its lock.
 | A project that already has rules of its own | `node bin/rules-sync.mjs migrate --into <projectDir> …` |
 | Routine update after this base changed | `node bin/rules-sync.mjs sync --into <projectDir>` |
 | A project whose rules must not be pushed | `node bin/rules-sync.mjs local --into <projectDir>` |
-| Anywhere, with no copy of this repository | `node .agents/bin/rules-sync.mjs check` |
+| Consuming project, with no copy of this repository | `node .agents/bin/rules-sync.mjs check` (also `learn`, `journal`) |
 
 Add `--dry-run` to any of the first four to see the plan without writing.
 
@@ -129,10 +129,10 @@ task → journal entry → destination → promotion → rule
 
 | Step | What happens |
 | :--- | :--- |
-| **Record** | `node bin/rules-sync.mjs learn --into <project> --task "<slug>" --entry <file>` appends one entry to `.agents/journal/`. Trigger, change, evidence, lesson, destination, direction. |
+| **Record** | `node .agents/bin/rules-sync.mjs learn --task "<slug>" --entry <file>` (or from base: `node bin/rules-sync.mjs learn --into <project> ...`) appends one entry to `.agents/journal/`. Trigger, change, evidence, lesson, destination, direction. |
 | **The gate** | Any destination other than `journal` requires an `Evidence` field containing a backticked command or path. The tool refuses the entry without it. A lesson with no evidence can be recorded but never promoted — that is the whole difference between a base of hard-won lessons and one of plausible-sounding opinions. |
-| **Route** | Project fact → `project-truth.md`; project command or trap → `project-conventions.md`; framework idiom → a stack rule; behavioural law → a numbered core rule. Unproven → the journal, where it costs nothing and misleads no one. |
-| **Promote** | Edit the target file, then `journal --promote <id> --to <path>`. An entry with a destination and no `Promoted:` stamp shows up as `PENDING` on every `check-index` run until it is resolved. |
+| **Route** | Project fact → `project-truth.md`; project command or trap → `project-conventions.md`; reusable procedure → `.agents/skills/<name>/SKILL.md` (routed in `AGENTS.md`); framework idiom → a stack rule; behavioural law → a numbered core rule. Unproven → the journal, where it costs nothing and misleads no one. |
+| **Promote** | Edit the target file, then `node .agents/bin/rules-sync.mjs journal --promote <id> --to <path>`. An entry with a destination and no `Promoted:` stamp shows up as `PENDING` on every `check-index` run until it is resolved. Promoting to a skill verifies that the skill is routed in `AGENTS.md`. |
 | **Look forward** | `journal --next` prints every recorded `Direction`. That list is the backlog. |
 
 The journal is **history, not rules**: nothing routes it, both guards skip it by name, and

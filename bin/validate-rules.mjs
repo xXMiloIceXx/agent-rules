@@ -173,7 +173,7 @@ console.log('=== 9) the journal obeys its own gate ===');
   const dir = path.join('.agents', 'journal');
   // Deliberately duplicated rather than imported: this script runs with nothing installed, and a
   // check that shares the implementation it checks cannot catch a change to that implementation.
-  const DESTINATIONS = /^(journal|project-truth|project-conventions|(base|stack|project):[A-Za-z0-9._/-]+)$/;
+  const DESTINATIONS = /^(journal|(\.agents\/rules\/)?(project-truth|project-conventions)(\.md)?|\.agents\/skills\/[A-Za-z0-9._/-]+|(base|stack|project):[A-Za-z0-9._/-]+)$/;
   const REQUIRED = ['Id', 'Trigger', 'Change', 'Evidence', 'Lesson', 'Destination'];
   let entries = 0;
   if (!fs.existsSync(dir)) {

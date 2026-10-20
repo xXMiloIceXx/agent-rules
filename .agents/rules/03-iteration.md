@@ -26,14 +26,15 @@ when you are about to repeat work someone already did, and when a lesson is read
 Write the entry with the tool, not by hand — the tool enforces the format and the gate:
 
 ```bash
-node bin/rules-sync.mjs learn --into <project> --task "n+1 in the report query" --entry entry.md
-node bin/rules-sync.mjs journal --into <project>          # what is recorded, what is pending
-node bin/rules-sync.mjs journal --into <project> --next   # open directions
-node bin/rules-sync.mjs journal --into <project> --promote <id> --to <path>
+node .agents/bin/rules-sync.mjs learn --task "n+1 in the report query" --entry entry.md
+node .agents/bin/rules-sync.mjs journal          # what is recorded, what is pending
+node .agents/bin/rules-sync.mjs journal --next   # open directions
+node .agents/bin/rules-sync.mjs journal --promote <id> --to <path>
 ```
 
-Every `rules-sync` command also runs from a vendored copy as `node .agents/bin/rules-sync.mjs check`,
-but `learn` and `journal` need the base — as does `sync`, and for the same reason.
+In a consuming project, `check`, `learn` and `journal` run directly from the vendored script
+`node .agents/bin/rules-sync.mjs` (or from the base repository via `node bin/rules-sync.mjs --into <project>`).
+Only `sync`, `init`, `migrate` and `local` require the base repository because they need the source rules and templates.
 
 ## The entry
 
@@ -73,6 +74,7 @@ Ask in this order, and stop at the first yes:
 
 | Question | If yes |
 | :--- | :--- |
+| Is it a repeatable multi-step procedure or SOP for this repo (rather than an invariant)? | `.agents/skills/<name>/SKILL.md` + a routing row in `AGENTS.md` |
 | Is it true of only this project? | `project-truth.md` (a fact) or `project-conventions.md` (a command, a trap) |
 | Is it one language or framework's idiom? | `stack:<path>` in the base — `php-laravel.md`, `vue-inertia-ts.md`, `python.md`, `java.md`, `c-cpp.md`, `jupyter.md` |
 | Is it behavioural law, true in every codebase? | `base:.agents/rules/<numbered>.md` |
@@ -111,3 +113,21 @@ looks forward.
 `Lesson: none` and `Destination: journal` is a complete, valid entry. A task that changed nothing and
 taught nothing is worth one line so the next reader knows it was considered — and an entry whose
 lesson is `none` can never be promoted, which is the point.
+
+## Handling `/learn` and rule/skill capture requests
+
+When the user invokes `/learn` or asks to save a rule, convention, or skill in this workspace,
+**do not** use generic file-creation defaults. Route the request strictly through this base's
+iteration protocol:
+
+1. **Never edit a vendored `.agents/rules/*.md` file** (anything listed in `.agents/rules.lock.json`),
+   and never create an unrouted `.agents/rules/*.md` file.
+2. **Record the journal entry first** via `node .agents/bin/rules-sync.mjs learn` with a concrete,
+   backticked `Evidence` field. If the lesson has no verifiable evidence yet, set `Destination: journal`
+   and tell the user why it cannot be promoted yet.
+3. **Apply the promotion immediately when the destination is project-local:**
+   - **Project fact** → edit `.agents/rules/project-truth.md`, then run `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/rules/project-truth.md`.
+   - **Project command or local trap** → edit `.agents/rules/project-conventions.md`, then run `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/rules/project-conventions.md`.
+   - **Reusable workflow (Skill)** → create `.agents/skills/<name>/SKILL.md` (first verifying `<name>` does not collide with an installed Laravel Boost skill), add its routing row to `AGENTS.md` under `## Skills`, and stamp `node .agents/bin/rules-sync.mjs journal --promote <id> --to .agents/skills/<name>/SKILL.md`.
+   - **Portable stack or core rule (`base:...` / `stack:...`)** → leave the journal entry as `PENDING` in this project (do not touch the vendored rule file) and output the exact diff or command needed for the upstream `agent-rules` repository.
+4. **Verify before finishing:** always run `node .agents/bin/check-index.mjs && node .agents/bin/rules-sync.mjs check` after `/learn` completes.

@@ -46,9 +46,9 @@
  * `learn` and `journal` close the loop: `learn` appends one evidence-gated entry per task to
  * `.agents/journal/`, and `journal` shows what is still waiting to be promoted into a rule.
  *
- * `sync`, `init`, `migrate`, `local` and `learn` need this repository and therefore refuse to run
- * from a vendored copy. `check` deliberately needs nothing: it verifies the vendored files against
- * the project's own lock, which is enough to catch a hand-edit, a deletion, or a partial sync.
+ * `sync`, `init`, `migrate` and `local` need this repository and therefore refuse to run
+ * from a vendored copy. `check`, `learn` and `journal` deliberately run from the vendored copy in
+ * consuming projects.
  */
 
 import fs from 'node:fs';
@@ -58,8 +58,21 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const SELF = fileURLToPath(import.meta.url);
+const posix = (p) => p.split(path.sep).join('/');
 const BASE_ROOT = path.resolve(path.dirname(SELF), '..');
 const BASE_RULES = path.join(BASE_ROOT, '.agents', 'rules');
+
+const isVendored = !fs.existsSync(BASE_RULES) || posix(SELF).includes('/.agents/bin/');
+
+function guardNotVendored(commandName) {
+  if (isVendored) {
+    console.error(
+      'error: this looks like a vendored copy of rules-sync.\n' +
+      `       Run \`${commandName}\` from the agent-rules repository instead; \`check\`, \`learn\` and \`journal\` work here.`
+    );
+    process.exit(2);
+  }
+}
 
 const RULES_DIR = path.join('.agents', 'rules');
 const BIN_DIR = path.join('.agents', 'bin');
@@ -136,7 +149,6 @@ const BOOST_OWNED_SKILLS = new Set([
 ]);
 
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
-const posix = (p) => p.split(path.sep).join('/');
 const relFromRoot = (root, p) => posix(path.relative(root, p));
 
 /** The scripts a project needs in order to guard its own rules. */
@@ -222,7 +234,7 @@ function plan() {
     console.error(
       'error: this looks like a vendored copy of rules-sync.\n' +
       `       ${BASE_RULES} does not exist, so there are no rules to sync.\n` +
-      '       Run `sync`/`init`/`migrate` from the agent-rules repository instead; `check` works here.'
+      '       Run `sync`/`init`/`migrate`/`local` from the agent-rules repository instead; `check`, `learn` and `journal` work here.'
     );
     process.exit(2);
   }
@@ -467,10 +479,42 @@ function applySync(project, { force, dryRun, index = INDEX_NAME }) {
   return { revision, aborted: false, conflicts: [], written, unchanged, backups, projectOwned, lockFiles, total };
 }
 
-function requireInto(argv, usage) {
-  const i = argv.indexOf('--into');
-  if (i === -1 || !argv[i + 1]) { console.error(usage); process.exit(2); }
-  return { project: path.resolve(argv[i + 1]), force: argv.includes('--force'), dryRun: argv.includes('--dry-run') };
+function defaultBaseProject() {
+  if (fs.existsSync(path.join(process.cwd(), '.agents', 'journal'))) {
+    return process.cwd();
+  }
+  const baseCandidate = path.resolve(path.dirname(SELF), '..');
+  if (fs.existsSync(path.join(baseCandidate, '.agents', 'journal'))) {
+    return baseCandidate;
+  }
+  return null;
+}
+
+function defaultProject() {
+  if (isVendored) {
+    if (fs.existsSync(path.join(process.cwd(), '.agents'))) {
+      return process.cwd();
+    }
+    return path.resolve(path.dirname(SELF), '..', '..');
+  }
+  return null;
+}
+
+function requireInto(argv, usage, { allowBaseFallback = false } = {}) {
+  const intoIdx = argv.indexOf('--into');
+  const projIdx = argv.indexOf('--project');
+  let target = null;
+  if (intoIdx !== -1 && argv[intoIdx + 1]) {
+    target = argv[intoIdx + 1];
+  } else if (projIdx !== -1 && argv[projIdx + 1]) {
+    target = argv[projIdx + 1];
+  } else if (isVendored) {
+    target = defaultProject();
+  } else if (allowBaseFallback) {
+    target = defaultBaseProject();
+  }
+  if (!target) { console.error(usage); process.exit(2); }
+  return { project: path.resolve(target), force: argv.includes('--force'), dryRun: argv.includes('--dry-run') };
 }
 
 function requireGit(project, hint) {
@@ -676,6 +720,7 @@ function reportEntryPoints(project, { strict }) {
 }
 
 function cmdSync(argv) {
+  guardNotVendored('sync');
   const { project, force, dryRun } = requireInto(argv, 'usage: rules-sync sync --into <projectDir> [--force] [--dry-run]');
   requireGit(project, 'Use `init` to bootstrap a new project, or `migrate` for one that has rules already.');
   const indexRel = lockedIndex(project);
@@ -739,6 +784,7 @@ function scaffoldProject(project, { dryRun, indexTo = INDEX_NAME, omitTemplates 
 }
 
 function cmdInit(argv) {
+  guardNotVendored('init');
   const { project, force, dryRun } = requireInto(argv, 'usage: rules-sync init --into <projectDir> [--force] [--dry-run]');
 
   const exists = fs.existsSync(project);
@@ -845,6 +891,7 @@ function localOwnedPaths(indexRel) {
  * and it is why it is not the default.
  */
 function cmdLocal(argv) {
+  guardNotVendored('local');
   const { project, force, dryRun } = requireInto(
     argv, 'usage: rules-sync local --into <projectDir> [--restore] [--force] [--dry-run]');
   const restore = argv.includes('--restore');
@@ -961,6 +1008,7 @@ Remember what this mode costs: a fresh clone, a CI runner and a teammate have no
 }
 
 function cmdMigrate(argv) {
+  guardNotVendored('migrate');
   const { project, force, dryRun } = requireInto(argv, 'usage: rules-sync migrate --into <projectDir> [--adopt-index | --replace-index] [--retire] [--require-clean] [--force] [--dry-run]');
   const adoptIndex = argv.includes('--adopt-index');
   const replaceIndex = argv.includes('--replace-index');
@@ -1113,7 +1161,7 @@ function cmdMigrate(argv) {
 const JOURNAL_FIELDS = ['Trigger', 'Change', 'Evidence', 'Lesson', 'Destination'];
 /** Where a lesson may go. `base:` and `stack:` name a path in the base repository, so a lesson about
  *  the tool itself has somewhere to land that is not a rule file. */
-const DESTINATIONS = /^(journal|project-truth|project-conventions|(base|stack|project):[A-Za-z0-9._/-]+)$/;
+const DESTINATIONS = /^(journal|(\.agents\/rules\/)?(project-truth|project-conventions)(\.md)?|\.agents\/skills\/[A-Za-z0-9._/-]+|(base|stack|project):[A-Za-z0-9._/-]+)$/;
 
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
 
@@ -1175,7 +1223,7 @@ function parseEntryInput(text, { task, date }) {
 
   const destination = fields.destination.replace(/`/g, '').trim();
   if (!DESTINATIONS.test(destination)) {
-    return { error: `Destination "${destination}" is not one of: journal, project-truth, project-conventions, base:<path>, stack:<path>, project:<path>` };
+    return { error: `Destination "${destination}" is not one of: journal, project-truth, project-conventions, .agents/skills/<name>/SKILL.md, base:<path>, stack:<path>, project:<path>` };
   }
   // The gate.
   if (destination !== 'journal' && !/`[^`]+`/.test(fields.evidence)) {
@@ -1195,8 +1243,8 @@ function parseEntryInput(text, { task, date }) {
 }
 
 function cmdLearn(argv) {
-  const usage = 'usage: rules-sync learn --into <projectDir> --task "<slug>" --entry <file|-> [--date YYYY-MM-DD] [--dry-run]';
-  const { project, dryRun } = requireInto(argv, usage);
+  const usage = 'usage: rules-sync learn [--into <projectDir>] --task "<slug>" --entry <file|-> [--date YYYY-MM-DD] [--dry-run]';
+  const { project, dryRun } = requireInto(argv, usage, { allowBaseFallback: true });
   const arg = (name) => { const i = argv.indexOf(name); return i === -1 ? null : argv[i + 1]; };
   const task = arg('--task');
   const entryPath = arg('--entry');
@@ -1205,7 +1253,15 @@ function cmdLearn(argv) {
 
   let text;
   try {
-    text = entryPath === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(path.resolve(entryPath), 'utf8');
+    let resolvedEntry = entryPath;
+    if (entryPath !== '-') {
+      if (!fs.existsSync(path.resolve(entryPath)) && fs.existsSync(path.resolve(project, entryPath))) {
+        resolvedEntry = path.resolve(project, entryPath);
+      } else {
+        resolvedEntry = path.resolve(entryPath);
+      }
+    }
+    text = entryPath === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(resolvedEntry, 'utf8');
   } catch (err) {
     console.error(`error: cannot read the entry from ${entryPath}: ${err.message}`);
     process.exit(2);
@@ -1230,7 +1286,9 @@ function cmdLearn(argv) {
   console.log(body.split('\n').map((l) => '  ' + l).join('\n'));
   if (parsed.value.destination !== '`journal`') {
     console.log(`\nDestination is ${parsed.value.destination} — promote it with:`);
-    console.log(`  node bin/rules-sync.mjs journal --into "${project}" --promote ${parsed.value.id} --to <path>`);
+    console.log(isVendored
+      ? `  node .agents/bin/rules-sync.mjs journal --promote ${parsed.value.id} --to <path>`
+      : `  node bin/rules-sync.mjs journal --into "${project}" --promote ${parsed.value.id} --to <path>`);
   }
   if (dryRun) { console.log('\ndry-run: nothing was written.'); return; }
 
@@ -1243,31 +1301,67 @@ function cmdLearn(argv) {
 }
 
 function cmdJournal(argv) {
-  const { project, dryRun } = requireInto(argv, 'usage: rules-sync journal --into <projectDir> [--review | --next | --promote <id> --to <path>]');
+  const { project, dryRun } = requireInto(argv, 'usage: rules-sync journal [--into <projectDir>] [--review | --next | --promote <id> --to <path>]', { allowBaseFallback: true });
   const arg = (name) => { const i = argv.indexOf(name); return i === -1 ? null : argv[i + 1]; };
   const entries = readJournal(project);
-  const promote = arg('--promote');
+  const rawPromote = arg('--promote');
+  const promote = rawPromote?.replace(/`/g, '').trim();
 
   if (promote) {
-    const to = arg('--to');
-    if (!to) { console.error('error: --promote needs --to <path> (the file the lesson was folded into).'); process.exit(2); }
+    const rawTo = arg('--to');
+    if (!rawTo) { console.error('error: --promote needs --to <path> (the file the lesson was folded into).'); process.exit(2); }
+    const to = rawTo.replace(/`/g, '').trim();
     const entry = entries.find((e) => idOf(e) === promote);
     if (!entry) { console.error(`error: no journal entry with id "${promote}".`); process.exit(1); }
-    if (!fs.existsSync(path.join(project, to))) {
+
+    let targetTo = to;
+    if (!fs.existsSync(path.join(project, targetTo))) {
+      const inRules = path.join(RULES_DIR, targetTo);
+      if (fs.existsSync(path.join(project, inRules))) {
+        targetTo = inRules;
+      } else if (targetTo.startsWith('skills/')) {
+        const inAgents = path.join('.agents', targetTo);
+        if (fs.existsSync(path.join(project, inAgents))) {
+          targetTo = inAgents;
+        }
+      }
+    }
+
+    if (!fs.existsSync(path.join(project, targetTo))) {
       console.error(`error: ${to} does not exist. Promote into a file that is actually there.`);
       process.exit(1);
     }
-    const stamp = `- Promoted: \`${posix(to)}\` @ ${new Date().toISOString().slice(0, 10)}`;
+    const cleanTo = posix(targetTo).replace(/^\.\//, '');
+    if (cleanTo.startsWith('.agents/skills/')) {
+      const indexRel = lockedIndex(project);
+      const indexPath = path.join(project, indexRel);
+      if (!fs.existsSync(indexPath)) {
+        console.error(`error: index ${indexRel} does not exist in ${project}.`);
+        process.exit(1);
+      }
+      const indexText = fs.readFileSync(indexPath, 'utf8');
+      if (!indexText.includes(`\`${cleanTo}\``)) {
+        console.error(`error: ${indexRel} does not route \`${cleanTo}\`.`);
+        console.error(`       Add a routing row for \`${cleanTo}\` in ${indexRel} under "## Skills" before promoting.`);
+        process.exit(1);
+      }
+    }
+    const stamp = `- Promoted: \`${cleanTo}\` @ ${new Date().toISOString().slice(0, 10)}`;
     const file = path.join(project, entry.rel);
     const text = fs.readFileSync(file, 'utf8');
     const updated = text.replace(
       new RegExp(`(## ${entry.heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n(?:.|\\n)*?)(?=\\n## |$)`, ''),
-      (block) => `${block.replace(/\s+$/, '')}\n${stamp}\n`
+      (block) => {
+        if (/^-\s*Promoted:/m.test(block)) {
+          return block.replace(/^-\s*Promoted:.*$/m, stamp);
+        }
+        return `${block.replace(/\s+$/, '')}\n${stamp}\n`;
+      }
     );
     if (updated === text) { console.error('error: could not locate the entry to stamp. Nothing was written.'); process.exit(1); }
     if (dryRun) { console.log(`would stamp ${entry.rel}:\n  ${stamp}`); return; }
     fs.writeFileSync(file, updated, 'utf8');
-    console.log(`promoted ${promote} → ${to}\n  ${stamp}`);
+    console.log(`promoted ${promote} → ${cleanTo}\n  ${stamp}`);
     console.log('The lesson is now in a file the index routes, which is the only place it can be read.');
     return;
   }
@@ -1276,7 +1370,9 @@ function cmdJournal(argv) {
   if (!entries.length) {
     console.log(`journal : empty — nothing in ${JOURNAL_DIR}/ yet.`);
     console.log('\nRecord the next task with:');
-    console.log('  node bin/rules-sync.mjs learn --into "<project>" --task "<slug>" --entry <file>');
+    console.log(isVendored
+      ? '  node .agents/bin/rules-sync.mjs learn --task "<slug>" --entry <file>'
+      : '  node bin/rules-sync.mjs learn --into "<project>" --task "<slug>" --entry <file>');
     return;
   }
 
@@ -1309,18 +1405,22 @@ function cmdJournal(argv) {
   console.log('');
   if (queue.length) {
     console.log(`${queue.length} awaiting promotion. Fold the lesson into the target file, then stamp it:`);
-    console.log(`  node bin/rules-sync.mjs journal --into "${project}" --promote ${queue[0].id} --to <path>`);
+    console.log(isVendored
+      ? `  node .agents/bin/rules-sync.mjs journal --promote ${queue[0].id} --to <path>`
+      : `  node bin/rules-sync.mjs journal --into "${project}" --promote ${queue[0].id} --to <path>`);
     console.log('A destination that never gets promoted is a lesson that was recorded and then lost.');
   } else if (reviewOnly) {
     console.log('nothing awaiting promotion.');
   }
   const directions = rows.filter((r) => r.direction).length;
-  if (directions && !reviewOnly) console.log(`${directions} entr${directions === 1 ? 'y' : 'ies'} recorded a direction: node bin/rules-sync.mjs journal --into "${project}" --next`);
+  if (directions && !reviewOnly) {
+    console.log(`${directions} entr${directions === 1 ? 'y' : 'ies'} recorded a direction: ${isVendored ? 'node .agents/bin/rules-sync.mjs journal --next' : `node bin/rules-sync.mjs journal --into "${project}" --next`}`);
+  }
 }
 
 function cmdCheck(argv) {
   const i = argv.indexOf('--project');
-  const project = i === -1 ? process.cwd() : path.resolve(argv[i + 1]);
+  const project = i === -1 ? (defaultProject() ?? process.cwd()) : path.resolve(argv[i + 1]);
   const lock = loadLock(project);
   if (!lock) { console.error(`no ${LOCK_NAME} in ${project} — this project has no vendored rules.`); process.exit(2); }
   const entries = Object.entries(lock.files ?? {});
@@ -1360,8 +1460,8 @@ else {
     '  rules-sync local   --into <projectDir> [--restore] [--force] [--dry-run]\n' +
     '  rules-sync migrate --into <projectDir> [--adopt-index | --replace-index] [--retire]\n' +
     '                     [--point-at-index <rel>]... [--require-clean] [--force] [--dry-run]\n' +
-    '  rules-sync learn   --into <projectDir> --task "<slug>" --entry <file|-> [--date YYYY-MM-DD]\n' +
-    '  rules-sync journal --into <projectDir> [--review | --next | --promote <id> --to <path>]\n' +
+    '  rules-sync learn   [--into <projectDir>] --task "<slug>" --entry <file|-> [--date YYYY-MM-DD]\n' +
+    '  rules-sync journal [--into <projectDir>] [--review | --next | --promote <id> --to <path>]\n' +
     '  rules-sync check [--project <projectDir>]');
   process.exit(2);
 }

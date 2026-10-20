@@ -18,9 +18,10 @@ and get agreement first.
 Test the edges of the behaviour, not only the happy path: null, zero, an empty collection, the
 maximum, the first and last row of a page.
 
-And test the value that is **falsy but meaningful** — `0`, `"0"`, `false`, `""`. This is a
-recurring real bug: a truthiness check silently swallows it. A form field reading `"0"` through
-`value || undefined` will drop a legitimate zero filter and return everything.
+And test the value that is **falsy but meaningful** — `0`, `"0"` (falsy in PHP), `false`, `""`.
+This is a recurring real bug: a truthiness check silently swallows it. A numeric field reading `0`
+through `value || undefined` in JavaScript (or `"0"` in PHP via `?:`) will drop a legitimate zero
+filter and return everything.
 
 Terminal and destructive actions (delete, cancel, reject, expire, revoke) each need a dedicated
 case. So do authorization denials and duplicate-request/idempotency paths.

@@ -175,6 +175,62 @@ echo "=== journal: the loop from entry to promotion ==="
   node "$project/.agents/bin/check-index.mjs" --project "$project" > /dev/null
   node "$project/.agents/bin/rules-sync.mjs" check --project "$project" > /dev/null
   pass "both guards still pass with the journal present"
+
+  # Vendored rules-sync running learn and journal directly in consuming project
+  good2="$(mktemp -d)/good2.md"
+  printf -- '- Trigger: vendored test\n- Change: test\n- Evidence: `php artisan test`\n- Lesson: none\n- Destination: project-truth\n' > "$good2"
+  (cd "$project" && node .agents/bin/rules-sync.mjs learn --task "vendored learn" --entry "$good2" > /dev/null)
+  pass "vendored rules-sync can run learn directly in project"
+
+  (cd "$project" && node .agents/bin/rules-sync.mjs journal --review | grep -q 'vendored learn')
+  pass "vendored rules-sync can run journal directly in project"
+
+  # Vendored rules-sync must refuse base-only commands
+  if (cd "$project" && node .agents/bin/rules-sync.mjs sync > /dev/null 2>&1); then
+    fail "vendored rules-sync allowed sync"
+  fi
+  pass "vendored rules-sync refuses sync"
+
+  # Skill promotion gate requires routing in AGENTS.md
+  skill_entry="$(mktemp -d)/skill_entry.md"
+  printf -- '- Trigger: test procedure\n- Change: add skill\n- Evidence: `bash test.sh`\n- Lesson: sop\n- Destination: .agents/skills/deploy/SKILL.md\n' > "$skill_entry"
+  (cd "$project" && node .agents/bin/rules-sync.mjs learn --task "sop" --entry "$skill_entry" > /dev/null)
+  mkdir -p "$project/.agents/skills/deploy"
+  touch "$project/.agents/skills/deploy/SKILL.md"
+  skill_id="$(sed -n 's/^- Id: `\(.*sop.*\)`$/\1/p' "$project/.agents/journal/"*.md | head -1)"
+  test -n "$skill_id"
+  if (cd "$project" && node .agents/bin/rules-sync.mjs journal --promote "$skill_id" --to .agents/skills/deploy/SKILL.md > /dev/null 2>&1); then
+    fail "promoted an unrouted skill"
+  fi
+  pass "promotion refuses a skill not routed in AGENTS.md"
+
+  printf '\n| Deploying | `.agents/skills/deploy/SKILL.md` |\n' >> "$project/AGENTS.md"
+  (cd "$project" && node .agents/bin/rules-sync.mjs journal --promote "$skill_id" --to .agents/skills/deploy/SKILL.md > /dev/null)
+  pass "promotion succeeds once skill is routed in AGENTS.md"
+
+  # Guards still pass after skill addition and promotion
+  node "$project/.agents/bin/check-index.mjs" --project "$project" > /dev/null
+  node "$project/.agents/bin/rules-sync.mjs" check --project "$project" > /dev/null
+  pass "both guards pass after skill promotion"
+
+  # Destination flexibility: accepts project-truth.md, and --to resolves to .agents/rules/
+  good3="$(mktemp -d)/good3.md"
+  printf -- '- Trigger: destination flexibility\n- Change: test\n- Evidence: `php artisan test`\n- Lesson: none\n- Destination: project-truth.md\n' > "$good3"
+  (cd "$project" && node .agents/bin/rules-sync.mjs learn --task "destination flexibility" --entry "$good3" > /dev/null)
+  flex_id="$(sed -n 's/^- Id: `\(.*destination-flexibility.*\)`$/\1/p' "$project/.agents/journal/"*.md | head -1)"
+  test -n "$flex_id"
+  (cd "$project" && node .agents/bin/rules-sync.mjs journal --promote "$flex_id" --to project-truth.md > /dev/null)
+  grep -q "Promoted: \`.agents/rules/project-truth.md\`" "$project/.agents/journal/"*.md
+  pass "learn accepts project-truth.md and promotion resolves to .agents/rules/project-truth.md"
+
+  # check-index resolves project root when invoked from a nested subdirectory
+  mkdir -p "$project/nested/sub/dir"
+  (cd "$project/nested/sub/dir" && node ../../../.agents/bin/check-index.mjs > /dev/null)
+  pass "check-index runs correctly from a nested subdirectory"
+
+  # Base repository rules-sync journal works without requiring --into
+  node bin/rules-sync.mjs journal --review > /dev/null
+  pass "base rules-sync journal works without --into in base repo"
 }
 
 echo
