@@ -8,8 +8,8 @@ description: "Laravel / PHP conventions. Discover the project's pinned versions 
 
 ## Discover first
 
-Read `composer.json` for the PHP constraint and framework version, and `phpunit.xml` or
-`pest.xml` for the test database and runner. **Follow what the project pins** — do not assume
+Read `composer.json` for the PHP constraint and framework version, and `phpunit.xml` (or
+`phpunit.xml.dist`) and `tests/Pest.php` for the test database and runner. **Follow what the project pins** — do not assume
 Pest versus PHPUnit, MySQL versus SQLite, or a PHP version. If the project contradicts a default
 here, the project wins.
 

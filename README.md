@@ -5,7 +5,7 @@ Language-agnostic engineering rules for coding agents, packaged for
 root `AGENTS.md`.
 
 The point of this repository is that **one rule base can serve every workspace** — Laravel,
-Vue, Python, Java, C/C++ — without each project re-deriving it, and without copying rules from
+Vue, Python, Java, C/C++, Jupyter — without each project re-deriving it, and without copying rules from
 project to project the way it was done before this existed.
 
 ## The three layers
@@ -15,7 +15,7 @@ Keep these separate. Most rule-base rot comes from mixing them.
 | Layer | Lives here? | Contents | Changes when |
 | :--- | :--- | :--- | :--- |
 | **Core** | yes | Behavioural law: priority order, the execution protocol, evidence discipline, minimal change, security invariants, change discipline, testing, review. True in every language. | rarely |
-| **Stack** | yes | `php-laravel`, `vue-inertia-ts`, `python`, `java`, `c-cpp`. Activated by file glob. | when a stack's idioms evolve |
+| **Stack** | yes | `php-laravel`, `vue-inertia-ts`, `python`, `java`, `c-cpp`, `jupyter`. Activated by file glob. | when a stack's idioms evolve |
 | **Project** | **no** | A project's verified facts: its versions, its runner, what it does *not* have. | whenever the project changes |
 
 A project overlay always wins over this repository. That is the whole safety mechanism: this

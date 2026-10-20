@@ -13,7 +13,7 @@
 set -euo pipefail
 
 SMOKE_TMP="$(mktemp -d)"
-trap 'rm -rf "$SMOKE_TMP"' EXIT HUP INT TERM
+trap 'rm -rf "$SMOKE_TMP"' EXIT
 
 pass() { echo "  ok   $*"; }
 fail() { echo "  FAIL $*"; exit 1; }

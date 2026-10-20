@@ -72,7 +72,7 @@ should pull it in, and name it in backticks so `check-index.mjs` can verify it e
 
 | When the work is | Read |
 | :--- | :--- |
-<!-- | <the task that should load this skill> | `.agents/skills/<name>/SKILL.md` | -->
+| <the task that should load this skill> | .agents/skills/<name>/SKILL.md (wrap in backticks) |
 
 Delete this section if the project has no skills. Keep the skill list short: a skill that is
 loaded on every task belongs in a rule, not in a skill.
