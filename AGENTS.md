@@ -42,6 +42,7 @@ project vendors them into its own tree through `bin/rules-sync.mjs`.
 | `**/*.java`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle`, `settings.gradle.kts` | `.agents/rules/java.md` |
 | `**/*.c`, `**/*.cc`, `**/*.cpp`, `**/*.cxx`, `**/*.h`, `**/*.hpp`, `CMakeLists.txt`, `Makefile` | `.agents/rules/c-cpp.md` |
 | `**/*.ipynb` — notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
+| `**/*.cs`, `**/*.unity`, `**/*.prefab`, `**/*.asset`, `Packages/manifest.json` | `.agents/rules/csharp-unity.md` |
 
 Antigravity activates those automatically from the frontmatter `globs`. Harnesses without a
 frontmatter mechanism use this table instead — one set of files, two consumers.

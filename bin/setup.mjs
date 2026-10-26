@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const syncScript = path.join(__dirname, 'rules-sync.mjs');
 
-const COMMANDS = ['init', 'sync', 'local', 'migrate', 'learn', 'journal', 'check'];
+const COMMANDS = ['init', 'sync', 'local', 'migrate', 'learn', 'journal', 'check', 'list', 'help'];
 const args = process.argv.slice(2);
 const first = args[0];
 
@@ -29,8 +29,8 @@ const first = args[0];
 const CWD_DEFAULT = new Set(['init', 'sync', 'local', 'learn', 'journal']);
 
 let finalArgs;
-if (args.includes('--help') || args.includes('-h')) {
-  finalArgs = [];
+if (args.includes('--help') || args.includes('-h') || first === 'help' || first === 'list') {
+  finalArgs = ['--help'];
 } else if (args.length === 0) {
   // The bare invocation is the "just make it work here, do not add anything to my repository" case
   // this wrapper always meant. It is now an explicit, checked mode instead of a side effect.

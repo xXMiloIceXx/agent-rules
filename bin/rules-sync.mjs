@@ -79,6 +79,7 @@ const BIN_DIR = path.join('.agents', 'bin');
 const LOCK_NAME = path.join('.agents', 'rules.lock.json');
 const LEGACY_DIR = '.agents/legacy';
 const JOURNAL_DIR = '.agents/journal';
+const TEAMWORK_DIR = '.agents/teamwork';
 const INDEX_NAME = 'AGENTS.md';
 /** Where the index goes when the root one is not ours to write — `local` mode only. */
 const LOCAL_INDEX = '.agents/AGENTS.md';
@@ -628,7 +629,7 @@ function findLegacyRules(project, lockFiles) {
       if (e.isDirectory()) {
         // Skills are the harness's to discover, legacy is already retired, and the journal is the
         // project's own history — none of them is an old rule corpus to be moved aside.
-        if (rel === SHARED_SKILLS || rel === LEGACY_DIR || rel === JOURNAL_DIR) continue;
+        if (rel === SHARED_SKILLS || rel === LEGACY_DIR || rel === JOURNAL_DIR || rel === TEAMWORK_DIR) continue;
         walk(path.join(dir, e.name), rel);
       } else if (e.name.endsWith('.md') && !owned.has(rel) && !KEEP_PROJECT.has(rel)) {
         out.push(rel);
@@ -1445,6 +1446,28 @@ function cmdCheck(argv) {
   console.log('ok — every vendored file matches the lock.');
 }
 
+function printHelp(isError = false) {
+  const log = isError ? console.error : console.log;
+  log('Agent Rules (Portable Base)\n');
+  log('Usage:');
+  log('  npx agent-rules <command> [options]');
+  log('  node .agents/bin/rules-sync.mjs <command> [options]\n');
+  log('Available commands:');
+  log('  local      Vendor rules into project and hide them in .git/info/exclude (never committed)');
+  log('  init       Scaffold agent rules into a clean project and version them in git');
+  log('  sync       Update vendored rules to match upstream base updates');
+  log('  migrate    Adopt agent rules into an existing project with legacy rules');
+  log('  check      Verify that vendored files match their lock and AGENTS.md is reachable');
+  log('  learn      Record a task journal entry with trigger, change, evidence, and lesson');
+  log('  journal    Inspect journal entries or promote a lesson into a rule\n');
+  log('Global options:');
+  log('  --into <dir>     Target project directory (defaults to current directory)');
+  log('  --dry-run        Simulate execution without modifying any files');
+  log('  --force          Overwrite conflicting files (backing up existing files first)');
+  log('  --restore        (local only) Remove local ignore block from .git/info/exclude');
+  log('  --help, -h       Display this help message');
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 if (cmd === 'sync') cmdSync(rest);
 else if (cmd === 'init') cmdInit(rest);
@@ -1453,15 +1476,10 @@ else if (cmd === 'migrate') cmdMigrate(rest);
 else if (cmd === 'learn') cmdLearn(rest);
 else if (cmd === 'journal') cmdJournal(rest);
 else if (cmd === 'check') cmdCheck(rest);
-else {
-  console.error('usage:\n' +
-    '  rules-sync sync    --into <projectDir> [--force] [--dry-run]\n' +
-    '  rules-sync init    --into <projectDir> [--force] [--dry-run]\n' +
-    '  rules-sync local   --into <projectDir> [--restore] [--force] [--dry-run]\n' +
-    '  rules-sync migrate --into <projectDir> [--adopt-index | --replace-index] [--retire]\n' +
-    '                     [--point-at-index <rel>]... [--require-clean] [--force] [--dry-run]\n' +
-    '  rules-sync learn   [--into <projectDir>] --task "<slug>" --entry <file|-> [--date YYYY-MM-DD]\n' +
-    '  rules-sync journal [--into <projectDir>] [--review | --next | --promote <id> --to <path>]\n' +
-    '  rules-sync check [--project <projectDir>]');
+else if (cmd === '--help' || cmd === '-h' || cmd === 'help' || cmd === 'list' || !cmd) {
+  printHelp(false);
+  process.exit(0);
+} else {
+  printHelp(true);
   process.exit(2);
 }

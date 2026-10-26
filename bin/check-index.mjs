@@ -72,6 +72,8 @@ const SKILLS = '.agents/skills';
 const LEGACY = '.agents/legacy';
 /** Project history, not rules: read when a lesson is promoted, never routed as a rule. */
 const JOURNAL = '.agents/journal';
+/** Multi-agent harness scratch: internal coordination state, not read as rules. */
+const TEAMWORK = '.agents/teamwork';
 /** Entry points other tools look for. Only the ones that exist are checked. */
 const POINTERS = ['.agents/AGENTS.md', '.agents/claude/CLAUDE.md', '.agents/codex/AGENTS.md'];
 /**
@@ -102,7 +104,7 @@ function universe() {
       const full = path.join(dir, e.name);
       const r = rel(full);
       if (e.isDirectory()) {
-        if (r !== rel(SKILLS) && r !== rel(LEGACY) && r !== rel(JOURNAL)) walk(full);
+        if (r !== rel(SKILLS) && r !== rel(LEGACY) && r !== rel(JOURNAL) && r !== rel(TEAMWORK)) walk(full);
       } else if (e.name.endsWith('.md')) out.push(r);
     }
   };

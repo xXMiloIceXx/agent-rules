@@ -5,6 +5,7 @@ Thumbs.db
 
 # Harness scratch
 .archify/
+.agents/teamwork/
 public/build
 node_modules/
 vendor/

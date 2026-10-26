@@ -63,6 +63,7 @@ instructions reads this file as the repository-wide entry point; Antigravity rea
 | `**/*.java`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle`, `settings.gradle.kts` | `.agents/rules/java.md` |
 | `**/*.c`, `**/*.cc`, `**/*.cpp`, `**/*.cxx`, `**/*.h`, `**/*.hpp`, `CMakeLists.txt`, `Makefile` | `.agents/rules/c-cpp.md` |
 | `**/*.ipynb` — notebooks, AI/ML experiments | `.agents/rules/jupyter.md` |
+| `**/*.cs`, `**/*.unity`, `**/*.prefab`, `**/*.asset`, `Packages/manifest.json` | `.agents/rules/csharp-unity.md` |
 
 ## Skills — project-local, and routed from here
 
