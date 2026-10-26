@@ -873,8 +873,9 @@ function lockedIndex(project) {
  * Antigravity, Codex, Amp and Zed, so excluding `.agents/` wholesale would untrack another tool's
  * files — the kind of silent damage this mode exists to prevent.
  */
-function localOwnedPaths(indexRel) {
+function localOwnedPaths(indexRel, { excludeSkills = false } = {}) {
   const out = [RULES_DIR, BIN_DIR, JOURNAL_DIR, LOCK_NAME, LEGACY_DIR];
+  if (excludeSkills) out.push(SHARED_SKILLS);
   for (const rel of POINTERS) if (posix(rel) !== indexRel) out.push(rel);
   if (indexRel !== posix(INDEX_NAME)) out.push(indexRel);
   return [...new Set(out.map(posix))].sort();
@@ -894,8 +895,9 @@ function localOwnedPaths(indexRel) {
 function cmdLocal(argv) {
   guardNotVendored('local');
   const { project, force, dryRun } = requireInto(
-    argv, 'usage: rules-sync local --into <projectDir> [--restore] [--force] [--dry-run]');
+    argv, 'usage: rules-sync local --into <projectDir> [--restore] [--force] [--dry-run] [--exclude-skills]');
   const restore = argv.includes('--restore');
+  const excludeSkills = argv.includes('--exclude-skills');
   requireGit(project, 'Local mode is a claim about what git publishes, so it needs git to check.');
 
   console.log(`project : ${project}`);
@@ -922,7 +924,7 @@ function cmdLocal(argv) {
   // Refuse before writing anything. An ignore rule does not apply to a tracked file, so excluding
   // one hides nothing and the rules get committed and pushed anyway — the exact outcome this mode
   // promises to prevent. Failing loudly is the only honest option; there is no flag that fixes it.
-  const owned = localOwnedPaths(indexRel);
+  const owned = localOwnedPaths(indexRel, { excludeSkills });
   const published = owned.map((rel) => ({ rel, hit: trackedUnder(project, rel) })).filter((x) => x.hit);
   if (published.length) {
     console.log(`refusing: ${published.length} path(s) this mode must hide are already tracked by git.\n`);
@@ -1465,6 +1467,7 @@ function printHelp(isError = false) {
   log('  --dry-run        Simulate execution without modifying any files');
   log('  --force          Overwrite conflicting files (backing up existing files first)');
   log('  --restore        (local only) Remove local ignore block from .git/info/exclude');
+  log('  --exclude-skills (local only) Also exclude .agents/skills/ from git tracking');
   log('  --help, -h       Display this help message');
 }
 
